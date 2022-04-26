@@ -50,7 +50,13 @@ namespace mdns {
             );
 
         public:
-            MDnsSub(std::string name, std::string regist_type, std::string domain, DNSServiceFlags flags, uint32_t interface_index);
+            MDnsSub(
+                std::string name, 
+                std::string regist_type, 
+                std::string domain, 
+                DNSServiceFlags flags, 
+                uint32_t interface_index
+            );
             ~MDnsSub();
             
             int ScanDomain(void callback());
