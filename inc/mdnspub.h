@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include <string>
+#include <map>
 
 namespace mdns {
     class MDnsPub {
@@ -26,12 +27,21 @@ namespace mdns {
             int UpdateRecord(int ttl);
 
         public:
-            MDnsPub(DNSServiceFlags flags, std::string name, std::string regist_type, std::string domain, 
-                    std::string host, uint16_t port, uint32_t interface_index);
+            MDnsPub(
+                DNSServiceFlags flags, 
+                std::string     name, 
+                std::string     regist_type, 
+                std::string     domain, 
+                std::string     host, 
+                uint16_t        port, 
+                uint32_t        interface_index
+            );
             ~MDnsPub();
             void InitRecord();
             int AddRecordValue(std::string key, std::string value);
-            int AddRecordValue(map<string, string> record_value);
+            int AddRecordValue(std::string key, std::string value, uint32_t ttl);
+            int AddRecordValue(std::map<std::string, std::string> record_value);
+            int AddRecordValue(std::map<std::string, std::string> record_value, uint32_t ttl);
             int RemoveRecordValue(std::string key);
             int Register();
             void Unregister();

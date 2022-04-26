@@ -1,7 +1,6 @@
 #include "mdnspub.h"
 
 #include <arpa/inet.h>
-#include <pthread.h>
 #include <dns_sd.h>
 
 #include <iostream>
@@ -50,14 +49,46 @@ mdns::MDnsPub::InitRecord() {
 int 
 mdns::MDnsPub::AddRecordValue(std::string key, std::string value) {
     int status;
-    statis = TXTRecordSetValue(&this->txt_record_, key.data(), value.size(), value.data());
-    if (status != kDNServiceErr_NoError) {
+    status = TXTRecordSetValue(&this->txt_record_, key.data(), value.size(), value.data());
+    if (status != kDNSServiceErr_NoError) {
         return status;
     }
+    return this->UpdateRecord();
+}
+
+int
+mdns::MDnsPub::AddRecordValue(std::string key, std::string value, uint32_t ttl) {
+    int status;
+    status = TXTRecordSetValue(&this->txt_record_, key.data(), value.size(), value.data());
+    if (status != kDNSServiceErr_NoError) {
+        return status;
+    }
+    return this->UpdateRecord(ttl);   
+}
+
+int 
+mdns::MDnsPub::AddRecordValue(std::map<std::string, std::string> record_value) {
+    int status;
+    for (const auto &item : record_value) {
+        status = TXTRecordSetValue(&this->txt_record_, item.first.data(), item.second.size(), item.second.data());
+        if (status != kDNSServiceErr_NoError) return status;
+    }
+    return this->UpdateRecord();
+}
+
+int 
+mdns::MDnsPub::AddRecordValue(std::map<std::string, std::string> record_value, uint32_t ttl) {
+    int status;
+    for (const auto &item : record_value) {
+        status = TXTRecordSetValue(&this->txt_record_, item.first.data(), item.second.size(), item.second.data());
+        if (status != kDNSServiceErr_NoError) return status;
+    }
+    return this->UpdateRecord(ttl);
 }
 
 int 
 mdns::MDnsPub::RemoveRecordValue(std::string key) {
+
     return TXTRecordRemoveValue(&this->txt_record_, key.data());
 }
 

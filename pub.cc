@@ -1,26 +1,25 @@
+#include <unistd.h>
 #include "mdnspub.h"
+
 #include <iostream>
+#include <map>
 
 using namespace std;
 
 int main() {
     mdns::MDnsPub pub(0, "gialuong", "_http._tcp", "local.", "", 5000, 0);
     pub.InitRecord();
-    pub.Regist();
+    pub.Register();
     while (1) {
-        string key, value;
-        cout << "key: ";
-        getline(cin, key);
-        if (key.compare("exit") == 0) {
-            break;
-        }
-        cout << "value: ";
-        getline(cin, value);
+        pub.AddRecordValue("name", "luong");
+        sleep(7);
 
-        pub.AddRecordValue(key, value);
-        pub.UpdateRecord();
+        std::map<std::string, std::string> record_value = {{"name", "gia luong"}, {"age", "21"}};  
+        pub.AddRecordValue(record_value);
+        pub.RemoveRecordValue("age");
+        sleep(7);
     }
     pub.DestroyRecord();
-    pub.Unregist();
+    pub.Unregister();
     return 0;
 }

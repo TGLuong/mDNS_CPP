@@ -1,7 +1,7 @@
 .PHONY: clean all
 
 CC = g++
-CFLAGS := -ldns_sd
+CFLAGS := -ldns_sd -pthread
 
 OBJ_FILE := $(wildcard )
 INC_DIR := inc

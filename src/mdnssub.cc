@@ -1,8 +1,7 @@
 #include "mdnssub.h"
 
-#include <pthread>
 
-static void 
+void 
 mdns::MDnsSub::DomainCallback_
 (
     DNSServiceRef       sd_ref, 
@@ -16,7 +15,7 @@ mdns::MDnsSub::DomainCallback_
     
 }
 
-static void 
+void 
 mdns::MDnsSub::ServiceCallback_
 (
     DNSServiceRef       sd_ref, 
@@ -32,7 +31,7 @@ mdns::MDnsSub::ServiceCallback_
 
 }
 
-static void 
+void 
 mdns::MDnsSub::RecordCallback_
 (
     DNSServiceRef       sd_ref,
@@ -70,18 +69,17 @@ mdns::MDnsSub::MDnsSub
 int
 mdns::MDnsSub::ScanDomain(void callback()) {
     int status;
-
-    status = DNSServiceEnumerateDomains(&this->sd_ref_, this->flags_,)
+    return 0;
 }
 
 int
 mdns::MDnsSub::ScanService(void callback()) {
-
+    return 0;
 }
 
 int
 mdns::MDnsSub::ScanRecord(void callback()) {
-
+    return 0;
 }
 
 // setter
