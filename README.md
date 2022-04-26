@@ -13,6 +13,7 @@ to use `mDNSResponder` in your source code, you must link object file with `-ldn
 
 ### Example
 ``` C++
+// test.cc
 #include <dns_sd.h>
 
 int main() {
@@ -21,4 +22,8 @@ int main() {
     while (1);
     return 0;
 }
+```
+```
+g++ -o test test.cc -ldns_sd
+./test
 ```
