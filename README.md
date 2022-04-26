@@ -10,3 +10,15 @@
 
 ## Complie source code that use mDNSResponder
 to use `mDNSResponder` in your source code, you must link object file with `-ldns_sd` flag </br>
+
+### Example
+``` C++
+#include <dns_sd.h>
+
+int main() {
+    DNSServiceRef sdRef;
+    DNSServiceRegister(&sdRef, 0, 0, "gialuong", "_http._tcp", "local.", NULL, 1, NULL, NULL, NULL);
+    while (1);
+    return 0;
+}
+```
