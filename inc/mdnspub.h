@@ -2,8 +2,9 @@
 #define MDNS_MDNSPUB_H
 
 #include <dns_sd.h>
-#include <string>
 #include <stdint.h>
+
+#include <string>
 
 namespace mdns {
     class MDnsPub {
