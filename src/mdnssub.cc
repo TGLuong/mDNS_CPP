@@ -1,6 +1,9 @@
 #include "mdnssub.h"
 
-static void mdns::MDnsSub::DomainCallback_
+#include <pthread>
+
+static void 
+mdns::MDnsSub::DomainCallback_
 (
     DNSServiceRef       sd_ref, 
     DNSServiceFlags     flags, 
@@ -13,7 +16,8 @@ static void mdns::MDnsSub::DomainCallback_
     
 }
 
-static void mdns::MDnsSub::ServiceCallback_
+static void 
+mdns::MDnsSub::ServiceCallback_
 (
     DNSServiceRef       sd_ref, 
     DNSServiceFlags     flags, 
@@ -28,7 +32,8 @@ static void mdns::MDnsSub::ServiceCallback_
 
 }
 
-static void mdns::MDnsSub::RecordCallback_
+static void 
+mdns::MDnsSub::RecordCallback_
 (
     DNSServiceRef       sd_ref,
     DNSServiceFlags     flags,
@@ -64,7 +69,9 @@ mdns::MDnsSub::MDnsSub
 
 int
 mdns::MDnsSub::ScanDomain(void callback()) {
+    int status;
 
+    status = DNSServiceEnumerateDomains(&this->sd_ref_, this->flags_,)
 }
 
 int

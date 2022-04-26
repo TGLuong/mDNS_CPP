@@ -22,18 +22,20 @@ namespace mdns {
             char txt_buffer_[65535];
             uint32_t ttl = 120;
 
+            int UpdateRecord();
+            int UpdateRecord(int ttl);
+
         public:
             MDnsPub(DNSServiceFlags flags, std::string name, std::string regist_type, std::string domain, 
                     std::string host, uint16_t port, uint32_t interface_index);
             ~MDnsPub();
             void InitRecord();
             int AddRecordValue(std::string key, std::string value);
+            int AddRecordValue(map<string, string> record_value);
             int RemoveRecordValue(std::string key);
-            int Regist();
-            void Unregist();
+            int Register();
+            void Unregister();
             void DestroyRecord();
-            int UpdateRecord();
-            int UpdateRecord(int ttl);
 
             // getter
             std::string get_name();

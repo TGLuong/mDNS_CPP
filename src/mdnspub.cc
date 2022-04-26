@@ -2,10 +2,23 @@
 
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <dns_sd.h>
 
 #include <iostream>
 
+// private
 
+int
+mdns::MDnsPub::UpdateRecord() {
+    return DNSServiceUpdateRecord(sd_ref_, NULL, 0, TXTRecordGetLength(&txt_record_), TXTRecordGetBytesPtr(&txt_record_), ttl);
+}
+
+int
+mdns::MDnsPub::UpdateRecord(int ttl) {
+    return DNSServiceUpdateRecord(sd_ref_, NULL, 0, TXTRecordGetLength(&txt_record_), TXTRecordGetBytesPtr(&txt_record_), ttl);
+}
+
+// public
 
 mdns::MDnsPub::MDnsPub
 (
@@ -36,7 +49,11 @@ mdns::MDnsPub::InitRecord() {
 
 int 
 mdns::MDnsPub::AddRecordValue(std::string key, std::string value) {
-    return TXTRecordSetValue(&this->txt_record_, key.data(), value.size(), value.data());
+    int status;
+    statis = TXTRecordSetValue(&this->txt_record_, key.data(), value.size(), value.data());
+    if (status != kDNServiceErr_NoError) {
+        return status;
+    }
 }
 
 int 
@@ -45,7 +62,7 @@ mdns::MDnsPub::RemoveRecordValue(std::string key) {
 }
 
 int
-mdns::MDnsPub::Regist() {
+mdns::MDnsPub::Register() {
     DNSServiceRegister(&sd_ref_, flags_, interface_index_, name_.data(), regist_type_.data(), 
                                 domain_.data(), NULL, port_, TXTRecordGetLength(&txt_record_), 
                                 TXTRecordGetBytesPtr(&txt_record_), NULL, NULL);
@@ -53,7 +70,7 @@ mdns::MDnsPub::Regist() {
 }
 
 void
-mdns::MDnsPub::Unregist() {
+mdns::MDnsPub::Unregister() {
     DNSServiceRefDeallocate(sd_ref_);
 }
 
@@ -61,16 +78,6 @@ void
 mdns::MDnsPub::DestroyRecord() {
     DNSServiceRemoveRecord(sd_ref_, record_ref_, 0);
     TXTRecordDeallocate(&txt_record_);
-}
-
-int
-mdns::MDnsPub::UpdateRecord() {
-    return DNSServiceUpdateRecord(sd_ref_, NULL, 0, TXTRecordGetLength(&txt_record_), TXTRecordGetBytesPtr(&txt_record_), ttl);
-}
-
-int
-mdns::MDnsPub::UpdateRecord(int ttl) {
-    return DNSServiceUpdateRecord(sd_ref_, NULL, 0, TXTRecordGetLength(&txt_record_), TXTRecordGetBytesPtr(&txt_record_), ttl);
 }
 
 // settter
