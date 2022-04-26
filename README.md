@@ -25,5 +25,4 @@ int main() {
 ```
 ```
 g++ -o test test.cc -ldns_sd
-./test
 ```
