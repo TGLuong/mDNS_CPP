@@ -10,8 +10,7 @@
 namespace mdns {
     class MDnsSub {
         private:
-            DNSServiceRef sd_ref_;
-            DNSServiceFlags flags_;
+            DNSServiceRef sd_ref_domain_;
             std::string name_;
             std::string regist_type_;
             std::string domain_;
@@ -54,7 +53,6 @@ namespace mdns {
                 std::string name, 
                 std::string regist_type, 
                 std::string domain, 
-                DNSServiceFlags flags, 
                 uint32_t interface_index
             );
             ~MDnsSub();
@@ -67,14 +65,12 @@ namespace mdns {
             void set_name(std::string name);
             void set_regist_type(std::string regist_type);
             void set_domain(std::string domain);
-            void set_flags(DNSServiceFlags flags);
             void set_interface_index(uint32_t interface_index);
 
             // getter
             std::string get_name();
             std::string get_regist_type();
             std::string get_domain();
-            DNSServiceFlags get_flags();
             uint32_t get_interface_index();
     };
 }

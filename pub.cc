@@ -7,8 +7,7 @@
 using namespace std;
 
 int main() {
-    mdns::MDnsPub pub(0, "gialuong", "_http._tcp", "local.", "", 5000, 0);
-    pub.InitRecord();
+    mdns::MDnsPub pub("gialuong", "_http._tcp", "local.", 5000, 0);
     pub.Register();
     while (1) {
         pub.AddRecordValue("name", "luong");
@@ -19,7 +18,5 @@ int main() {
         pub.RemoveRecordValue("age");
         sleep(7);
     }
-    pub.DestroyRecord();
-    pub.Unregister();
     return 0;
 }

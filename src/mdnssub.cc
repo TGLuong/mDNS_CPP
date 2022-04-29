@@ -1,5 +1,14 @@
 #include "mdnssub.h"
+#include <dns_sd.h>
 
+
+typedef void (*callback_def)();
+
+struct callback_store {
+    callback_def call;
+};
+
+// private
 
 void 
 mdns::MDnsSub::DomainCallback_
@@ -12,7 +21,9 @@ mdns::MDnsSub::DomainCallback_
     void                *context
 ) 
 {
-    
+    printf("%s\n", reply_domain);
+    struct callback_store *store = (struct callback_store *) context;
+    store->call();
 }
 
 void 
@@ -50,25 +61,37 @@ mdns::MDnsSub::RecordCallback_
 
 }
 
+// public
+
 mdns::MDnsSub::MDnsSub
 (
     std::string name, 
     std::string regist_type, 
     std::string domain, 
-    DNSServiceFlags flags, 
     uint32_t interface_index
 ) 
 {
     this->name_ = name;
     this->regist_type_ = regist_type;
     this->domain_ = domain;
-    this->flags_ = flags;
     this-> interface_index_ = interface_index;
 }
+
+mdns::MDnsSub::~MDnsSub() { }
 
 int
 mdns::MDnsSub::ScanDomain(void callback()) {
     int status;
+    struct  callback_store store;
+    store.call = callback;
+    status = DNSServiceEnumerateDomains(
+        &sd_ref_domain_, 
+        kDNSServiceFlagsBrowseDomains, 
+        0, 
+        DomainCallback_, 
+        &store
+    );
+    while (1) DNSServiceProcessResult(sd_ref_domain_); 
     return 0;
 }
 
@@ -98,10 +121,6 @@ mdns::MDnsSub::set_domain(std::string domain) {
     this->domain_ = domain;
 }
 
-void
-mdns::MDnsSub::set_flags(DNSServiceFlags flags) {
-    this->flags_ = flags;
-}
 
 void
 mdns::MDnsSub::set_interface_index(uint32_t interface_index) {
@@ -122,11 +141,6 @@ mdns::MDnsSub::get_regist_type() {
 std::string
 mdns::MDnsSub::get_domain() {
     return this->domain_;
-}
-
-DNSServiceFlags
-mdns::MDnsSub::get_flags() {
-    return this->flags_;
 }
 
 uint32_t
