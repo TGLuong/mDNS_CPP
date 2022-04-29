@@ -1,11 +1,16 @@
 #include "mdnssub.h"
 #include <dns_sd.h>
 
+#include <vector>
+#include <string>
+#include <thread>
 
-typedef void (*callback_def)();
 
-struct callback_store {
-    callback_def call;
+typedef void (*domain_callback_def)(std::string);
+
+struct domain_callback_store {
+    domain_callback_def call;
+    std::vector<std::string> *domain_list;
 };
 
 // private
@@ -21,9 +26,18 @@ mdns::MDnsSub::DomainCallback_
     void                *context
 ) 
 {
-    printf("%s\n", reply_domain);
-    struct callback_store *store = (struct callback_store *) context;
-    store->call();
+    struct domain_callback_store *store = (struct domain_callback_store *) context;
+    store->domain_list->push_back(reply_domain);
+    store->call(reply_domain);
+}
+
+void
+mdns::MDnsSub::RequestStopDomain_() {
+    if (this->domain_loop_ != NULL) { // if thread in runing, free it
+        this->is_domain_loop_ = 0;
+        this->domain_loop_->join();
+        delete this->domain_loop_;
+    }
 }
 
 void 
@@ -77,21 +91,26 @@ mdns::MDnsSub::MDnsSub
     this-> interface_index_ = interface_index;
 }
 
-mdns::MDnsSub::~MDnsSub() { }
+mdns::MDnsSub::~MDnsSub() { 
+    this->RequestStopDomain_();
+}
 
 int
-mdns::MDnsSub::ScanDomain(void callback()) {
-    int status;
-    struct  callback_store store;
-    store.call = callback;
-    status = DNSServiceEnumerateDomains(
-        &sd_ref_domain_, 
-        kDNSServiceFlagsBrowseDomains, 
-        0, 
-        DomainCallback_, 
-        &store
-    );
-    while (1) DNSServiceProcessResult(sd_ref_domain_); 
+mdns::MDnsSub::ScanDomain(void callback(std::string)) {
+    this->domain_loop_ = new std::thread([&] {
+        struct domain_callback_store store;
+        store.call = callback;
+        store.domain_list = &this->domain_list_;
+
+        DNSServiceEnumerateDomains(
+            &sd_ref_domain_, 
+            kDNSServiceFlagsBrowseDomains, 
+            0, 
+            DomainCallback_, 
+            &store
+        );
+        while (1) DNSServiceProcessResult(this->sd_ref_domain_);
+    });
     return 0;
 }
 
@@ -103,6 +122,11 @@ mdns::MDnsSub::ScanService(void callback()) {
 int
 mdns::MDnsSub::ScanRecord(void callback()) {
     return 0;
+}
+
+void
+mdns::MDnsSub::Listen() {
+    
 }
 
 // setter
@@ -146,4 +170,18 @@ mdns::MDnsSub::get_domain() {
 uint32_t
 mdns::MDnsSub::get_interface_index() {
     return this->interface_index_;
+}
+
+long
+mdns::MDnsSub::get_domain_list_size() {
+    return this->domain_list_.size();
+}
+
+std::string
+mdns::MDnsSub::get_domain_list_at(int i) {
+    if (i < this->domain_list_.size()) {
+        printf("??\n");
+        return this->domain_list_.at(i);
+    }
+    throw "out of bound";
 }

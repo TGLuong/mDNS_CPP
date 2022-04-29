@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 #include <string>
+#include <vector>
+#include <thread>
 
 
 namespace mdns {
@@ -15,6 +17,9 @@ namespace mdns {
             std::string regist_type_;
             std::string domain_;
             uint32_t interface_index_;
+            std::vector<std::string> domain_list_;
+            std::thread *domain_loop_ = NULL;
+            int is_domain_loop_ = 1;
 
             static void DomainCallback_(
                 DNSServiceRef       sd_ref, 
@@ -24,6 +29,7 @@ namespace mdns {
                 const char          *reply_domain, 
                 void                *context
             );
+            void RequestStopDomain_();
             static void ServiceCallback_(
                 DNSServiceRef       sd_ref, 
                 DNSServiceFlags     flags, 
@@ -57,9 +63,10 @@ namespace mdns {
             );
             ~MDnsSub();
             
-            int ScanDomain(void callback());
+            int ScanDomain(void callback(std::string));
             int ScanService(void callback());
             int ScanRecord(void callback());
+            void Listen();
 
             // setter
             void set_name(std::string name);
@@ -72,6 +79,8 @@ namespace mdns {
             std::string get_regist_type();
             std::string get_domain();
             uint32_t get_interface_index();
+            long get_domain_list_size();
+            std::string get_domain_list_at(int i);
     };
 }
 #endif // MDNS_MDNSSUB_H

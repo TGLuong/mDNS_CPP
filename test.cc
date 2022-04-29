@@ -1,39 +1,30 @@
 #include <stdio.h>
+#include <unistd.h>
 #include <dns_sd.h>
 
 #include <map>
 #include <iostream>
+#include <thread>
+#include <vector>
 
-typedef int (*operation)(int a, int b);
+int loop = 1;
 
-typedef struct _str {
-    int result;
-    operation opt;
-} STR;
-
-int sum(int a , int b) {
-    return a + b;
+void foo(int a, int b) {
+    while (loop) {
+        printf("aha\n");
+        sleep(1);
+    }
 }
 
-int minus(int a, int b) {
-    return a - b;
-}
+std::vector<std::string>
 
-
-void run(void *param) {
-    STR *str_obj = (STR *) param;
-    str_obj->result = str_obj->opt(10, 6);
-
-    printf("result: %d\n", str_obj->result);
-}
 
 
 int main() {
-    STR str_obj;
-    str_obj.opt = sum;
+    std::vector<std::string> a = {"haha", "hihi"};
+    std::vector<std::string> b(a);
 
-    run((void *) &str_obj);
-
-    
+    b.push_back("luong");
+    printf("%ld %ld\n", a.size(), b.size());
     return 0;
 }
