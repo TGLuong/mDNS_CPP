@@ -6,25 +6,28 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <algorithm>
 
-int loop = 1;
 
-void foo(int a, int b) {
-    while (loop) {
-        printf("aha\n");
-        sleep(1);
+
+void print_vector(std::vector<std::string> vect) {
+    for (std::string s : vect) {
+        printf("%s ", s.data());
     }
+    printf("\n");
 }
 
-std::vector<std::string>
-
-
-
 int main() {
-    std::vector<std::string> a = {"haha", "hihi"};
-    std::vector<std::string> b(a);
+    std::vector<std::string> a = {"haha", "hihi", "gialuong"};
 
-    b.push_back("luong");
-    printf("%ld %ld\n", a.size(), b.size());
+    print_vector(a);
+
+    std::remove_if(a.begin(), a.end(), [](std::string s){
+        if (s.compare("hihi") == 0) return true;
+        return false;
+    });
+
+    print_vector(a);
+    
     return 0;
 }

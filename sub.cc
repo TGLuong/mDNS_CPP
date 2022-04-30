@@ -9,15 +9,22 @@ void callback(std::string domain) {
     printf("%s\n", domain.data());
 }
 
+void OnAddService(std::string service) {
+    printf("serive add : %s\n", service.data());
+}
+
+void OnRemoveService(std::string service) {
+    printf("service remove: %s\n", service.data());
+}
+
 int main() {
     mdns::MDnsSub sub("gialuong", "_http._tcp", "local.", 0);
     sub.ScanDomain(callback);
+    sub.ScanService(OnAddService, OnRemoveService);
     while(1) {
-        printf("%ld\n", sub.get_domain_list_size());
-        if (sub.get_domain_list_size() > 0) {
-            printf("at 1: %s\n", sub.get_domain_list_at(1).data());
-        }
-        sleep(1);
+        printf("domain num: %ld\n", sub.get_domain_vector_size());
+        // printf("service num: %ld\n", sub.get_service_vector_size());
+        sleep(5);
     };
     
     return 0;

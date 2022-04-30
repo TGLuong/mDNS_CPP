@@ -1,16 +1,26 @@
 #include "mdnssub.h"
 #include <dns_sd.h>
+#include <string.h>
 
 #include <vector>
 #include <string>
 #include <thread>
+#include <algorithm>
 
 
 typedef void (*domain_callback_def)(std::string);
 
 struct domain_callback_store {
     domain_callback_def call;
-    std::vector<std::string> *domain_list;
+    std::vector<std::string> *domain_vector;
+};
+
+typedef void (*service_callback_def)(std::string);
+
+struct service_callback_store {
+    service_callback_def OnAddService;
+    service_callback_def OnRemoveService;
+    std::vector<std::string> *service_vector;
 };
 
 // private
@@ -27,7 +37,7 @@ mdns::MDnsSub::DomainCallback_
 ) 
 {
     struct domain_callback_store *store = (struct domain_callback_store *) context;
-    store->domain_list->push_back(reply_domain);
+    store->domain_vector->push_back(reply_domain);
     store->call(reply_domain);
 }
 
@@ -50,11 +60,31 @@ mdns::MDnsSub::ServiceCallback_
     const char          *service_name, 
     const char          *regist_type, 
     const char          *reply_domain, 
-    char                *context
+    void                *context
 ) 
 {
-
+    struct service_callback_store *store = (struct service_callback_store *) context;
+    int buffer_len = strlen(service_name) + strlen(regist_type) + strlen(reply_domain) + 10;
+    char buffer[buffer_len];
+    DNSServiceConstructFullName(buffer, service_name, regist_type, reply_domain);
+    if (flags == kDNSServiceFlagsAdd) {
+        store->service_vector->push_back(buffer);
+        store->OnAddService(buffer);
+    } else {
+        std::remove_if(
+            store->service_vector->begin(), 
+            store->service_vector->end(),
+            [&] (std::string s) -> bool {
+                if (s.compare(buffer) == 0) return true;
+                else return false;
+            }
+        );
+        store->OnRemoveService(buffer);
+    }
 }
+
+void
+mdns::MDnsSub::RequestStopService_() { }
 
 void 
 mdns::MDnsSub::RecordCallback_
@@ -100,7 +130,7 @@ mdns::MDnsSub::ScanDomain(void callback(std::string)) {
     this->domain_loop_ = new std::thread([&] {
         struct domain_callback_store store;
         store.call = callback;
-        store.domain_list = &this->domain_list_;
+        store.domain_vector = &this->domain_vector_;
 
         DNSServiceEnumerateDomains(
             &sd_ref_domain_, 
@@ -115,7 +145,24 @@ mdns::MDnsSub::ScanDomain(void callback(std::string)) {
 }
 
 int
-mdns::MDnsSub::ScanService(void callback()) {
+mdns::MDnsSub::ScanService(void OnAddService(std::string), void OnRemoveService(std::string)) {
+    this->service_loop_ = new std::thread([&] {
+        struct service_callback_store store;
+        store.OnAddService = OnAddService;
+        store.OnRemoveService = OnRemoveService;
+        store.service_vector = &this->service_vector_;
+
+        DNSServiceBrowse(
+            &this->sd_ref_service_, 
+            0, 
+            0, 
+            this->regist_type_.data(),
+            this->domain_.data(),
+            this->ServiceCallback_, 
+            &store
+        );
+        while (1) DNSServiceProcessResult(this->sd_ref_service_);
+    });
     return 0;
 }
 
@@ -173,15 +220,19 @@ mdns::MDnsSub::get_interface_index() {
 }
 
 long
-mdns::MDnsSub::get_domain_list_size() {
-    return this->domain_list_.size();
+mdns::MDnsSub::get_domain_vector_size() {
+    return this->domain_vector_.size();
 }
 
 std::string
-mdns::MDnsSub::get_domain_list_at(int i) {
-    if (i < this->domain_list_.size()) {
-        printf("??\n");
-        return this->domain_list_.at(i);
+mdns::MDnsSub::get_domain_vector_at(int i) {
+    if (i < this->domain_vector_.size()) {
+        return this->domain_vector_.at(i);
     }
     throw "out of bound";
+}
+
+long
+mdns::MDnsSub::get_service_vector_size() {
+    return this->service_vector_.size();
 }
