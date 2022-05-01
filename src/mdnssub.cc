@@ -29,8 +29,8 @@ typedef void (*record_callback_def)(std::string);
 struct record_callback_store {
     record_callback_def OnAddRecord;
     record_callback_def OnRemoveRecord;
-    std::map<std::string> record_map;
-}
+    std::map<std::string, std::string> record_map;
+};
 
 // private
 
@@ -110,8 +110,8 @@ mdns::MDnsSub::RecordCallback_
     void                *context
 )
 {
-    struct record_callback_store *store = (struct record_callback_store *) contex;
-    
+    struct record_callback_store *store = (struct record_callback_store *) context;
+    printf("rdata: %s\n", (char *)rdata);
 }
 
 void
@@ -194,7 +194,7 @@ int
 mdns::MDnsSub::ScanRecord(void OnAddRecord(std::string), void OnRemoveRecord(std::string)) {
     this->record_loop_ = new std::thread([this, OnAddRecord, OnRemoveRecord] () {
         struct record_callback_store store;
-        int fullname_len = strlen(service_name) + strlen(regist_type) + strlen(reply_domain) + 10;
+        int fullname_len = strlen(this->name_.data()) + strlen(this->regist_type_.data()) + strlen(this->domain_.data()) + 10;
         char fullname[fullname_len];
         DNSServiceConstructFullName(
             fullname, 
@@ -208,7 +208,7 @@ mdns::MDnsSub::ScanRecord(void OnAddRecord(std::string), void OnRemoveRecord(std
         store.record_map = this->record_map_;
 
         DNSServiceQueryRecord(
-            this->sd_ref_record_,
+            &this->sd_ref_record_,
             0,
             this->interface_index_,
             fullname,
@@ -224,12 +224,8 @@ mdns::MDnsSub::ScanRecord(void OnAddRecord(std::string), void OnRemoveRecord(std
     return 0;
 }
 
-void
-mdns::MDnsSub::Listen() {
-    
-}
-
 // setter
+
 void
 mdns::MDnsSub::set_name(std::string name) {
     this->name_ = name;
