@@ -110,7 +110,8 @@ mdns::MDnsSub::RecordCallback_
     void                *context
 )
 {
-
+    struct record_callback_store *store = (struct record_callback_store *) contex;
+    
 }
 
 void
@@ -216,6 +217,9 @@ mdns::MDnsSub::ScanRecord(void OnAddRecord(std::string), void OnRemoveRecord(std
             this->RecordCallback_,
             &store
         );
+
+        this->is_record_loop_ = 1;
+        while (this->is_record_loop_) DNSServiceProcessResult(this->sd_ref_record_);
     });
     return 0;
 }
