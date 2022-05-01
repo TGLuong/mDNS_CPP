@@ -5,8 +5,9 @@
 #include <stdint.h>
 
 #include <string>
-#include <vector>
 #include <thread>
+#include <list>
+#include <map>
 
 
 namespace mdns {
@@ -18,14 +19,19 @@ namespace mdns {
             uint32_t interface_index_;
 
             DNSServiceRef sd_ref_domain_;
-            std::vector<std::string> domain_vector_;
+            std::list<std::string> domain_list_;
             std::thread *domain_loop_ = NULL;
-            int is_domain_loop_ = 1;
+            int is_domain_loop_ = 0;
 
             DNSServiceRef sd_ref_service_;
-            std::vector<std::string> service_vector_;
+            std::list<std::string> service_list_;
             std::thread *service_loop_ = NULL;
-            int is_service_loop_ = 1;
+            int is_service_loop_ = 0;
+
+            DNSServiceRef sd_ref_record_;
+            std::map<std::string, std::string> record_map_;
+            std::thread *record_loop_ = NULL;
+            int is_record_loop_ = 0;
 
             static void DomainCallback_(
                 DNSServiceRef       sd_ref, 
@@ -65,6 +71,8 @@ namespace mdns {
                 void                *context
             );
 
+            void RequestStopRecord_();
+
         public:
             MDnsSub(
                 std::string name, 
@@ -78,9 +86,7 @@ namespace mdns {
 
             int ScanService(void OnAddService(std::string), void OnRemoveService(std::string));
 
-            int ScanRecord(void callback());
-
-            void Listen();
+            int ScanRecord(void OnAddRecord(std::string), void OnRemoveRecord(std::string));
 
             // setter
 
@@ -102,11 +108,11 @@ namespace mdns {
 
             uint32_t get_interface_index();
 
-            long get_domain_vector_size();
+            long get_domain_list_size();
 
-            std::string get_domain_vector_at(int i);
+            std::string get_domain_list_at(int i);
 
-            long get_service_vector_size();
+            long get_service_list_size();
 
     };
 }

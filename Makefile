@@ -23,4 +23,4 @@ remake: clean all
 
 clean:
 	rm -rf obj/*
-	rm -rf main
+	rm -rf sub pub

@@ -2,7 +2,8 @@
 #include <dns_sd.h>
 #include <string.h>
 
-#include <vector>
+#include <list>
+#include <map>
 #include <string>
 #include <thread>
 #include <algorithm>
@@ -12,7 +13,7 @@ typedef void (*domain_callback_def)(std::string);
 
 struct domain_callback_store {
     domain_callback_def call;
-    std::vector<std::string> *domain_vector;
+    std::list<std::string> *domain_list;
 };
 
 typedef void (*service_callback_def)(std::string);
@@ -20,8 +21,16 @@ typedef void (*service_callback_def)(std::string);
 struct service_callback_store {
     service_callback_def OnAddService;
     service_callback_def OnRemoveService;
-    std::vector<std::string> *service_vector;
+    std::list<std::string> *service_list;
 };
+
+typedef void (*record_callback_def)(std::string);
+
+struct record_callback_store {
+    record_callback_def OnAddRecord;
+    record_callback_def OnRemoveRecord;
+    std::map<std::string> record_map;
+}
 
 // private
 
@@ -37,7 +46,7 @@ mdns::MDnsSub::DomainCallback_
 ) 
 {
     struct domain_callback_store *store = (struct domain_callback_store *) context;
-    store->domain_vector->push_back(reply_domain);
+    store->domain_list->push_back(reply_domain);
     store->call(reply_domain);
 }
 
@@ -68,23 +77,22 @@ mdns::MDnsSub::ServiceCallback_
     char buffer[buffer_len];
     DNSServiceConstructFullName(buffer, service_name, regist_type, reply_domain);
     if (flags == kDNSServiceFlagsAdd) {
-        store->service_vector->push_back(buffer);
+        store->service_list->push_back(buffer);
         store->OnAddService(buffer);
     } else {
-        std::remove_if(
-            store->service_vector->begin(), 
-            store->service_vector->end(),
-            [&] (std::string s) -> bool {
-                if (s.compare(buffer) == 0) return true;
-                else return false;
-            }
-        );
+        store->service_list->remove(buffer);
         store->OnRemoveService(buffer);
     }
 }
 
 void
-mdns::MDnsSub::RequestStopService_() { }
+mdns::MDnsSub::RequestStopService_() {
+    if (this->service_loop_ != NULL) { // if thread in runing, free it
+        this->is_service_loop_ = 0;
+        this->service_loop_->join();
+        delete this->service_loop_;
+    }
+}
 
 void 
 mdns::MDnsSub::RecordCallback_
@@ -105,6 +113,15 @@ mdns::MDnsSub::RecordCallback_
 
 }
 
+void
+mdns::MDnsSub::RequestStopRecord_() {
+    if (this->record_loop_ != NULL) {
+        this->is_record_loop_ = 0;
+        this->record_loop_->join();
+        delete this->record_loop_;
+    }
+}
+
 // public
 
 mdns::MDnsSub::MDnsSub
@@ -123,15 +140,17 @@ mdns::MDnsSub::MDnsSub
 
 mdns::MDnsSub::~MDnsSub() { 
     this->RequestStopDomain_();
+    this->RequestStopService_();
+    this->RequestStopRecord_();
 }
 
 int
 mdns::MDnsSub::ScanDomain(void callback(std::string)) {
-    this->domain_loop_ = new std::thread([&] {
+    this->domain_loop_ = new std::thread([this, callback] () -> void {
         struct domain_callback_store store;
         store.call = callback;
-        store.domain_vector = &this->domain_vector_;
-
+        store.domain_list = &this->domain_list_;
+        
         DNSServiceEnumerateDomains(
             &sd_ref_domain_, 
             kDNSServiceFlagsBrowseDomains, 
@@ -139,18 +158,20 @@ mdns::MDnsSub::ScanDomain(void callback(std::string)) {
             DomainCallback_, 
             &store
         );
-        while (1) DNSServiceProcessResult(this->sd_ref_domain_);
+
+        this->is_domain_loop_ = 1;
+        while (this->is_domain_loop_) DNSServiceProcessResult(this->sd_ref_domain_);
     });
     return 0;
 }
 
 int
 mdns::MDnsSub::ScanService(void OnAddService(std::string), void OnRemoveService(std::string)) {
-    this->service_loop_ = new std::thread([&] {
+    this->service_loop_ = new std::thread([this, OnAddService, OnRemoveService] {
         struct service_callback_store store;
         store.OnAddService = OnAddService;
         store.OnRemoveService = OnRemoveService;
-        store.service_vector = &this->service_vector_;
+        store.service_list = &this->service_list_;
 
         DNSServiceBrowse(
             &this->sd_ref_service_, 
@@ -161,13 +182,41 @@ mdns::MDnsSub::ScanService(void OnAddService(std::string), void OnRemoveService(
             this->ServiceCallback_, 
             &store
         );
-        while (1) DNSServiceProcessResult(this->sd_ref_service_);
+
+        this->is_service_loop_ = 1;
+        while (this->is_service_loop_) DNSServiceProcessResult(this->sd_ref_service_);
     });
     return 0;
 }
 
 int
-mdns::MDnsSub::ScanRecord(void callback()) {
+mdns::MDnsSub::ScanRecord(void OnAddRecord(std::string), void OnRemoveRecord(std::string)) {
+    this->record_loop_ = new std::thread([this, OnAddRecord, OnRemoveRecord] () {
+        struct record_callback_store store;
+        int fullname_len = strlen(service_name) + strlen(regist_type) + strlen(reply_domain) + 10;
+        char fullname[fullname_len];
+        DNSServiceConstructFullName(
+            fullname, 
+            this->name_.data(), 
+            this->regist_type_.data(), 
+            this->domain_.data()
+        );
+
+        store.OnAddRecord = OnAddRecord;
+        store.OnRemoveRecord = OnRemoveRecord;
+        store.record_map = this->record_map_;
+
+        DNSServiceQueryRecord(
+            this->sd_ref_record_,
+            0,
+            this->interface_index_,
+            fullname,
+            kDNSServiceType_TXT,
+            kDNSServiceClass_IN,
+            this->RecordCallback_,
+            &store
+        );
+    });
     return 0;
 }
 
@@ -220,19 +269,21 @@ mdns::MDnsSub::get_interface_index() {
 }
 
 long
-mdns::MDnsSub::get_domain_vector_size() {
-    return this->domain_vector_.size();
+mdns::MDnsSub::get_domain_list_size() {
+    return this->domain_list_.size();
 }
 
 std::string
-mdns::MDnsSub::get_domain_vector_at(int i) {
-    if (i < this->domain_vector_.size()) {
-        return this->domain_vector_.at(i);
+mdns::MDnsSub::get_domain_list_at(int i) {
+    if (i < this->domain_list_.size()) {
+        std::list<std::string>::iterator it = this->domain_list_.begin();
+        std::advance(it, i);
+        return *it;
     }
-    throw "out of bound";
+    return "";
 }
 
 long
-mdns::MDnsSub::get_service_vector_size() {
-    return this->service_vector_.size();
+mdns::MDnsSub::get_service_list_size() {
+    return this->service_list_.size();
 }
