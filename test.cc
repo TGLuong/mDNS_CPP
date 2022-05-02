@@ -5,29 +5,46 @@
 #include <map>
 #include <iostream>
 #include <thread>
+#include <string>
 #include <vector>
 #include <algorithm>
 
 
 
-void print_vector(std::vector<std::string> vect) {
-    for (std::string s : vect) {
-        printf("%s ", s.data());
-    }
-    printf("\n");
-}
+
 
 int main() {
-    std::vector<std::string> a = {"haha", "hihi", "gialuong"};
+    std::map<std::string, std::string> a;
 
-    print_vector(a);
+    a.insert(std::pair<std::string, std::string>("name", "luong"));
+    a.insert(std::pair<std::string, std::string>("age", "21"));
+    a.insert(std::pair<std::string, std::string>("class", "CT3D"));
+    a.insert(std::pair<std::string, std::string>("academy", "KMA"));
 
-    std::remove_if(a.begin(), a.end(), [](std::string s){
-        if (s.compare("hihi") == 0) return true;
-        return false;
-    });
+    std::map<std::string, std::string>::iterator itr;
 
-    print_vector(a);
+    for (itr = a.begin(); itr != a.end(); itr++) {
+        printf("%s: %s\n", itr->first.data(), itr->second.data());
+    }
+
+    std::map<std::string, std::string>::iterator f = a.find("haha");
+
+    if (f != a.end()){
+        f->second = "mat ma";
+    } else {
+        a.insert(std::pair<std::string, std::string>("haha", "haha"));
+    }
     
+
+    for (itr = a.begin(); itr != a.end(); itr++) {
+        printf("%s: %s\n", itr->first.data(), itr->second.data());
+    }
+
+
+    a.erase("f");
+
+    for (itr = a.begin(); itr != a.end(); itr++) {
+        printf("%s: %s\n", itr->first.data(), itr->second.data());
+    }
     return 0;
 }

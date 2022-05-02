@@ -86,7 +86,7 @@ namespace mdns {
 
             int ScanService(void OnAddService(std::string), void OnRemoveService(std::string));
 
-            int ScanRecord(void OnAddRecord(std::string), void OnRemoveRecord(std::string));
+            int ScanRecord(void OnAddRecord(std::map<std::string, std::string>), void OnRemoveRecord(std::map<std::string, std::string>));
 
             // setter
 
@@ -113,6 +113,12 @@ namespace mdns {
             std::string get_domain_list_at(int i);
 
             long get_service_list_size();
+
+            std::string get_service_list_at(int i);
+
+            long get_record_map_size();
+
+            std::string get_record_by_key(std::string key);
 
     };
 }

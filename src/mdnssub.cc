@@ -24,12 +24,12 @@ struct service_callback_store {
     std::list<std::string> *service_list;
 };
 
-typedef void (*record_callback_def)(std::string);
+typedef void (*record_callback_def)(std::map<std::string, std::string>);
 
 struct record_callback_store {
     record_callback_def OnAddRecord;
     record_callback_def OnRemoveRecord;
-    std::map<std::string, std::string> record_map;
+    std::map<std::string, std::string> *record_map;
 };
 
 // private
@@ -111,7 +111,48 @@ mdns::MDnsSub::RecordCallback_
 )
 {
     struct record_callback_store *store = (struct record_callback_store *) context;
-    printf("rdata: %s\n", (char *)rdata);
+    char key[100];
+    char value[1000];
+    const void *value_pointer;
+    uint8_t value_len, record_count;
+    std::map<std::string, std::string> record_map;
+
+    record_count = TXTRecordGetCount(record_data_len, rdata);
+
+    for (int i = 0; i < record_count; i++) {
+        memset(key, 0, sizeof(key));
+        memset(value, 0 , sizeof(value));
+        TXTRecordGetItemAtIndex(
+            record_data_len,
+            rdata,
+            i,
+            100,
+            key,
+            &value_len,
+            &value_pointer
+        );
+
+        memcpy(value, value_pointer, value_len);
+
+        record_map.insert(std::pair<std::string, std::string>(key, value));
+
+        if (flags == kDNSServiceFlagsAdd) {
+            std::map<std::string, std::string>::iterator itr = store->record_map->find(key);
+            if (itr != store->record_map->end()) {
+                itr->second = value;
+            } else {
+                store->record_map->insert(std::pair<std::string, std::string>(key, value));
+            }
+        } else {
+            store->record_map->erase(key);
+        }
+
+    }
+    if (flags == kDNSServiceFlagsAdd) {
+        store->OnAddRecord(record_map);
+    } else {
+        store->OnRemoveRecord(record_map);
+    }
 }
 
 void
@@ -146,7 +187,11 @@ mdns::MDnsSub::~MDnsSub() {
 }
 
 int
-mdns::MDnsSub::ScanDomain(void callback(std::string)) {
+mdns::MDnsSub::ScanDomain
+(
+    void callback(std::string)
+)
+{
     this->domain_loop_ = new std::thread([this, callback] () -> void {
         struct domain_callback_store store;
         store.call = callback;
@@ -167,7 +212,12 @@ mdns::MDnsSub::ScanDomain(void callback(std::string)) {
 }
 
 int
-mdns::MDnsSub::ScanService(void OnAddService(std::string), void OnRemoveService(std::string)) {
+mdns::MDnsSub::ScanService
+(
+    void OnAddService(std::string), 
+    void OnRemoveService(std::string)
+)
+{
     this->service_loop_ = new std::thread([this, OnAddService, OnRemoveService] {
         struct service_callback_store store;
         store.OnAddService = OnAddService;
@@ -191,11 +241,17 @@ mdns::MDnsSub::ScanService(void OnAddService(std::string), void OnRemoveService(
 }
 
 int
-mdns::MDnsSub::ScanRecord(void OnAddRecord(std::string), void OnRemoveRecord(std::string)) {
+mdns::MDnsSub::ScanRecord
+(
+    void OnAddRecord(std::map<std::string, std::string>), 
+    void OnRemoveRecord(std::map<std::string, std::string>)
+)
+{
     this->record_loop_ = new std::thread([this, OnAddRecord, OnRemoveRecord] () {
         struct record_callback_store store;
         int fullname_len = strlen(this->name_.data()) + strlen(this->regist_type_.data()) + strlen(this->domain_.data()) + 10;
         char fullname[fullname_len];
+
         DNSServiceConstructFullName(
             fullname, 
             this->name_.data(), 
@@ -205,7 +261,7 @@ mdns::MDnsSub::ScanRecord(void OnAddRecord(std::string), void OnRemoveRecord(std
 
         store.OnAddRecord = OnAddRecord;
         store.OnRemoveRecord = OnRemoveRecord;
-        store.record_map = this->record_map_;
+        store.record_map = &this->record_map_;
 
         DNSServiceQueryRecord(
             &this->sd_ref_record_,
@@ -221,6 +277,7 @@ mdns::MDnsSub::ScanRecord(void OnAddRecord(std::string), void OnRemoveRecord(std
         this->is_record_loop_ = 1;
         while (this->is_record_loop_) DNSServiceProcessResult(this->sd_ref_record_);
     });
+
     return 0;
 }
 
@@ -241,13 +298,13 @@ mdns::MDnsSub::set_domain(std::string domain) {
     this->domain_ = domain;
 }
 
-
 void
 mdns::MDnsSub::set_interface_index(uint32_t interface_index) {
     this->interface_index_ = interface_index;
 }
 
 // getter
+
 std::string
 mdns::MDnsSub::get_name() {
     return this->name_;
@@ -286,4 +343,29 @@ mdns::MDnsSub::get_domain_list_at(int i) {
 long
 mdns::MDnsSub::get_service_list_size() {
     return this->service_list_.size();
+}
+
+std::string
+mdns::MDnsSub::get_service_list_at(int i) {
+    if (i < this->service_list_.size()) {
+        std::list<std::string>::iterator it = this->service_list_.begin();
+        std::advance(it, i);
+        return *it;
+    }
+    return "";
+}
+
+long
+mdns::MDnsSub::get_record_map_size() {
+    return this->record_map_.size();
+}
+
+std::string
+mdns::MDnsSub::get_record_by_key(std::string key) {
+    std::map<std::string, std::string>::iterator itr = this->record_map_.find(key);
+    if (itr != this->record_map_.end()) {
+        return itr->second;
+    } else {
+        return "";
+    }
 }
