@@ -9,27 +9,44 @@
 
 int
 mdns::MDnsPub::UpdateRecord_() {
-    return DNSServiceUpdateRecord(sd_ref_, NULL, 0, TXTRecordGetLength(&txt_record_), TXTRecordGetBytesPtr(&txt_record_), ttl);
+    return DNSServiceUpdateRecord(
+        sd_ref_, 
+        NULL, 
+        0, 
+        TXTRecordGetLength(&txt_record_), 
+        TXTRecordGetBytesPtr(&txt_record_), 
+        this->time_to_live
+    );
 }
 
 int
-mdns::MDnsPub::UpdateRecord_(int ttl) {
-    return DNSServiceUpdateRecord(sd_ref_, NULL, 0, TXTRecordGetLength(&txt_record_), TXTRecordGetBytesPtr(&txt_record_), ttl);
+mdns::MDnsPub::UpdateRecord_(int time_to_live) {
+    return DNSServiceUpdateRecord(
+        sd_ref_, 
+        NULL, 
+        0, 
+        TXTRecordGetLength(&txt_record_), 
+        TXTRecordGetBytesPtr(&txt_record_), 
+        time_to_live
+    );
 }
 
 void 
 mdns::MDnsPub::InitRecord_() {
-    TXTRecordCreate(&this->txt_record_, sizeof(this->txt_buffer_), this->txt_buffer_);
-}
-
-void
-mdns::MDnsPub::Unregister_() {
-    DNSServiceRefDeallocate(sd_ref_);
+    TXTRecordCreate(
+        &this->txt_record_, 
+        sizeof(this->txt_buffer_), 
+        this->txt_buffer_
+    );
 }
 
 void
 mdns::MDnsPub::DestroyRecord_() {
-    DNSServiceRemoveRecord(sd_ref_, record_ref_, 0);
+    DNSServiceRemoveRecord(
+        sd_ref_, 
+        record_ref_, 
+        0
+    );
     TXTRecordDeallocate(&txt_record_);
 }
 
@@ -38,14 +55,14 @@ mdns::MDnsPub::DestroyRecord_() {
 mdns::MDnsPub::MDnsPub
 (
     std::string     name, 
-    std::string     regist_type, 
+    std::string     register_type, 
     std::string     domain,
     uint16_t        port, 
     uint32_t        interface_index
 )   
 {
     this->name_ = name;
-    this->regist_type_ = regist_type;
+    this->register_type_ = register_type;
     this->domain_ = domain;
     this->port_ = htons(port);
     this->interface_index_ = interface_index;
@@ -53,51 +70,123 @@ mdns::MDnsPub::MDnsPub
 
 mdns::MDnsPub::~MDnsPub() {
     DestroyRecord_();
-    Unregister_();
+    Unregister();
 }
 
 int 
-mdns::MDnsPub::AddRecordValue(std::string key, std::string value) {
-    if (is_init_txt == 0) {
+mdns::MDnsPub::AddRecordValue
+(
+    std::string key, 
+    std::string value
+) 
+{
+    if (is_init_txt_ == 0) {
         InitRecord_();
-        is_init_txt = 1;
+        is_init_txt_ = 1;
     }
+
     int status;
-    status = TXTRecordSetValue(&this->txt_record_, key.data(), value.size(), value.data());
+    status = TXTRecordSetValue(
+        &this->txt_record_, key.data(), 
+        value.size(), 
+        value.data()
+    );
+
     if (status != kDNSServiceErr_NoError) {
         return status;
     }
-    return this->UpdateRecord_();
+    
+    if (this->is_registered_ == 1) this->UpdateRecord_();
+
+    return 0;
 }
 
 int
-mdns::MDnsPub::AddRecordValue(std::string key, std::string value, uint32_t ttl) {
+mdns::MDnsPub::AddRecordValue
+(
+    std::string key, 
+    std::string value, 
+    uint32_t time_to_live
+) 
+{
+    if (is_init_txt_ == 0) {
+        InitRecord_();
+        is_init_txt_ = 1;
+    }
+
     int status;
-    status = TXTRecordSetValue(&this->txt_record_, key.data(), value.size(), value.data());
+    status = TXTRecordSetValue(
+        &this->txt_record_, 
+        key.data(), 
+        value.size(), 
+        value.data()
+    );
+
     if (status != kDNSServiceErr_NoError) {
         return status;
     }
-    return this->UpdateRecord_(ttl);   
+
+    if (this->is_registered_ == 1) 
+        this->UpdateRecord_(time_to_live);
+
+    return 0;
 }
 
 int 
-mdns::MDnsPub::AddRecordValue(std::map<std::string, std::string> record_value) {
+mdns::MDnsPub::AddRecordValue
+(
+    std::map<std::string, 
+    std::string> record_value
+) 
+{
+    if (is_init_txt_ == 0) {
+        InitRecord_();
+        is_init_txt_ = 1;
+    }
+
     int status;
     for (const auto &item : record_value) {
-        status = TXTRecordSetValue(&this->txt_record_, item.first.data(), item.second.size(), item.second.data());
+        status = TXTRecordSetValue(
+            &this->txt_record_, 
+            item.first.data(), 
+            item.second.size(), 
+            item.second.data()
+        );
         if (status != kDNSServiceErr_NoError) return status;
     }
-    return this->UpdateRecord_();
+
+    if (this->is_registered_ == 1) this->UpdateRecord_();
+
+    return 0;
 }
 
 int 
-mdns::MDnsPub::AddRecordValue(std::map<std::string, std::string> record_value, uint32_t ttl) {
+mdns::MDnsPub::AddRecordValue
+(
+    std::map<std::string, 
+    std::string> record_value, 
+    uint32_t time_to_live
+)
+{
+    if (is_init_txt_ == 0) {
+        InitRecord_();
+        is_init_txt_ = 1;
+    }
+
     int status;
     for (const auto &item : record_value) {
-        status = TXTRecordSetValue(&this->txt_record_, item.first.data(), item.second.size(), item.second.data());
+        status = TXTRecordSetValue(
+            &this->txt_record_, 
+            item.first.data(), 
+            item.second.size(), 
+            item.second.data()
+        );
         if (status != kDNSServiceErr_NoError) return status;
     }
-    return this->UpdateRecord_(ttl);
+
+    if (this->is_registered_ == 1) this->UpdateRecord_(time_to_live);
+    
+    return 0;
 }
 
 int 
@@ -107,13 +196,32 @@ mdns::MDnsPub::RemoveRecordValue(std::string key) {
 
 int
 mdns::MDnsPub::Register() {
-    DNSServiceRegister(&sd_ref_, flags_, interface_index_, name_.data(), regist_type_.data(), 
-                                domain_.data(), NULL, port_, TXTRecordGetLength(&txt_record_), 
-                                TXTRecordGetBytesPtr(&txt_record_), NULL, NULL);
-    return 0;            
+    int status;
+
+    status = DNSServiceRegister(
+        &sd_ref_, 
+        flags_, 
+        interface_index_, 
+        name_.data(), 
+        register_type_.data(), 
+        domain_.data(), 
+        NULL, 
+        port_, 
+        TXTRecordGetLength(&txt_record_), 
+        TXTRecordGetBytesPtr(&txt_record_), 
+        NULL, 
+        NULL
+    );
+
+    if (status == 0) this->is_registered_ = 1;
+
+    return status;            
 }
 
-
+void
+mdns::MDnsPub::Unregister() {
+    DNSServiceRefDeallocate(sd_ref_);
+}
 
 // settter
 
@@ -124,7 +232,7 @@ mdns::MDnsPub::set_name(std::string name) {
 
 void
 mdns::MDnsPub::set_regist_type(std::string regist_type) {
-    this->regist_type_ = regist_type;
+    this->register_type_ = regist_type;
 }
 
 void
@@ -156,7 +264,7 @@ mdns::MDnsPub::get_name() {
 
 std::string
 mdns::MDnsPub::get_regist_type() {
-    return this->regist_type_;
+    return this->register_type_;
 }
 
 std::string 

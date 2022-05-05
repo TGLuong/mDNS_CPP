@@ -15,12 +15,23 @@ pub: pub.cc $(patsubst $(SRC_DIR)/%.cc, $(OBJ_DIR)/%.o, $(C_FILE))
 
 sub: sub.cc $(patsubst $(SRC_DIR)/%.cc, $(OBJ_DIR)/%.o, $(C_FILE))
 	$(CC) -o sub sub.cc $(wildcard $(OBJ_DIR)/*.o) -I$(INC_DIR) $(CFLAGS)
+
+client: client1 client2
+
+client1: client1.cc $(patsubst $(SRC_DIR)/%.cc, $(OBJ_DIR)/%.o, $(C_FILE))
+	$(CC) -o client1 client1.cc $(wildcard $(OBJ_DIR)/*.o) -I$(INC_DIR) $(CFLAGS)
+
+client2: client2.cc $(patsubst $(SRC_DIR)/%.cc, $(OBJ_DIR)/%.o, $(C_FILE))
+	$(CC) -o client2 client2.cc $(wildcard $(OBJ_DIR)/*.o) -I$(INC_DIR) $(CFLAGS)
 	
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc
 	$(CC) -o $@ -c $(patsubst $(OBJ_DIR)/%.o, $(SRC_DIR)/%.cc, $@) -I$(INC_DIR) $(CFLAGS)
 
 remake: clean all
 
-clean:
+clean: clean-test
 	rm -rf obj/*
 	rm -rf sub pub
+
+clean-test:
+	rm -rf test

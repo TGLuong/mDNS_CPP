@@ -1,6 +1,9 @@
 #include "mdnssub.h"
 #include <dns_sd.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 #include <list>
 #include <map>
@@ -51,11 +54,11 @@ mdns::MDnsSub::DomainCallback_
 }
 
 void
-mdns::MDnsSub::RequestStopDomain_() {
-    if (this->domain_loop_ != NULL) { // if thread in runing, free it
+mdns::MDnsSub::RequestStopDomain() {
+    if (this->domain_thread_ != NULL) { // if thread in runing, free it
         this->is_domain_loop_ = 0;
-        this->domain_loop_->join();
-        delete this->domain_loop_;
+        this->domain_thread_->join();
+        delete this->domain_thread_;
     }
 }
 
@@ -67,15 +70,15 @@ mdns::MDnsSub::ServiceCallback_
     uint32_t            interface_index, 
     DNSServiceErrorType error_code, 
     const char          *service_name, 
-    const char          *regist_type, 
+    const char          *register_type, 
     const char          *reply_domain, 
     void                *context
 ) 
 {
     struct service_callback_store *store = (struct service_callback_store *) context;
-    int buffer_len = strlen(service_name) + strlen(regist_type) + strlen(reply_domain) + 10;
+    int buffer_len = strlen(service_name) + strlen(register_type) + strlen(reply_domain) + 10;
     char buffer[buffer_len];
-    DNSServiceConstructFullName(buffer, service_name, regist_type, reply_domain);
+    DNSServiceConstructFullName(buffer, service_name, register_type, reply_domain);
     if (flags == kDNSServiceFlagsAdd) {
         store->service_list->push_back(buffer);
         store->OnAddService(buffer);
@@ -86,11 +89,11 @@ mdns::MDnsSub::ServiceCallback_
 }
 
 void
-mdns::MDnsSub::RequestStopService_() {
-    if (this->service_loop_ != NULL) { // if thread in runing, free it
+mdns::MDnsSub::RequestStopService() {
+    if (this->service_thread_ != NULL) { // if thread in runing, free it
         this->is_service_loop_ = 0;
-        this->service_loop_->join();
-        delete this->service_loop_;
+        this->service_thread_->join();
+        delete this->service_thread_;
     }
 }
 
@@ -102,37 +105,37 @@ mdns::MDnsSub::RecordCallback_
     uint32_t            interface_index,
     DNSServiceErrorType error_code,
     const char          *fullname,
-    uint16_t            regist_record_type,
-    uint16_t            regist_record_class,
-    uint16_t            record_data_len,
-    const void          *rdata,
-    uint32_t            ttl,
+    uint16_t            register_record_type,
+    uint16_t            register_record_class,
+    uint16_t            record_data_length,
+    const void          *record_data,
+    uint32_t            time_to_live,
     void                *context
 )
 {
     struct record_callback_store *store = (struct record_callback_store *) context;
-    char key[100];
-    char value[1000];
+    char key[10000];
+    char value[10000];
     const void *value_pointer;
-    uint8_t value_len, record_count;
+    uint8_t value_length, record_count;
     std::map<std::string, std::string> record_map;
 
-    record_count = TXTRecordGetCount(record_data_len, rdata);
+    record_count = TXTRecordGetCount(record_data_length, record_data);
 
     for (int i = 0; i < record_count; i++) {
         memset(key, 0, sizeof(key));
         memset(value, 0 , sizeof(value));
         TXTRecordGetItemAtIndex(
-            record_data_len,
-            rdata,
+            record_data_length,
+            record_data,
             i,
             100,
             key,
-            &value_len,
+            &value_length,
             &value_pointer
         );
 
-        memcpy(value, value_pointer, value_len);
+        memcpy(value, value_pointer, value_length);
 
         record_map.insert(std::pair<std::string, std::string>(key, value));
 
@@ -146,7 +149,6 @@ mdns::MDnsSub::RecordCallback_
         } else {
             store->record_map->erase(key);
         }
-
     }
     if (flags == kDNSServiceFlagsAdd) {
         store->OnAddRecord(record_map);
@@ -156,12 +158,49 @@ mdns::MDnsSub::RecordCallback_
 }
 
 void
-mdns::MDnsSub::RequestStopRecord_() {
-    if (this->record_loop_ != NULL) {
+mdns::MDnsSub::RequestStopRecord() {
+    if (this->record_thread_ != NULL) {
         this->is_record_loop_ = 0;
-        this->record_loop_->join();
-        delete this->record_loop_;
+        this->record_thread_->join();
+        delete this->record_thread_;
     }
+}
+
+void
+mdns::MDnsSub::GetHostnameCallback_
+(
+    DNSServiceRef       sdRef,
+    DNSServiceFlags     flags,
+    uint32_t            interfaceIndex,
+    DNSServiceErrorType errorCode,
+    const char          *fullname,
+    const char          *hosttarget,
+    uint16_t            port,
+    uint16_t            txt_length,
+    const unsigned char *txt_record,
+    void                *context
+)
+{
+    std::string * scan_result = (std::string *) context;
+    (*scan_result) = hosttarget;
+}
+
+void 
+mdns::MDnsSub::GetIpCallback_
+(
+    DNSServiceRef           sdRef,
+    DNSServiceFlags         flags,
+    uint32_t                interfaceIndex,
+    DNSServiceErrorType     errorCode,
+    const char              *hostname,
+    const struct sockaddr   *address,
+    uint32_t                time_to_live,
+    void                    *context
+)
+{
+    std::string * ip_address = (std::string *) context;
+    struct sockaddr_in * addr_in = (struct sockaddr_in *) address;
+    (* ip_address) = inet_ntoa(addr_in->sin_addr);
 }
 
 // public
@@ -169,21 +208,21 @@ mdns::MDnsSub::RequestStopRecord_() {
 mdns::MDnsSub::MDnsSub
 (
     std::string name, 
-    std::string regist_type, 
+    std::string register_type, 
     std::string domain, 
     uint32_t interface_index
 ) 
 {
     this->name_ = name;
-    this->regist_type_ = regist_type;
+    this->register_type_ = register_type;
     this->domain_ = domain;
     this-> interface_index_ = interface_index;
 }
 
 mdns::MDnsSub::~MDnsSub() { 
-    this->RequestStopDomain_();
-    this->RequestStopService_();
-    this->RequestStopRecord_();
+    this->RequestStopDomain();
+    this->RequestStopService();
+    this->RequestStopRecord();
 }
 
 int
@@ -192,7 +231,7 @@ mdns::MDnsSub::ScanDomain
     void callback(std::string)
 )
 {
-    this->domain_loop_ = new std::thread([this, callback] () -> void {
+    this->domain_thread_ = new std::thread([this, callback] () -> void {
         struct domain_callback_store store;
         store.call = callback;
         store.domain_list = &this->domain_list_;
@@ -200,7 +239,7 @@ mdns::MDnsSub::ScanDomain
         DNSServiceEnumerateDomains(
             &sd_ref_domain_, 
             kDNSServiceFlagsBrowseDomains, 
-            0, 
+            this->interface_index_, 
             DomainCallback_, 
             &store
         );
@@ -218,7 +257,7 @@ mdns::MDnsSub::ScanService
     void OnRemoveService(std::string)
 )
 {
-    this->service_loop_ = new std::thread([this, OnAddService, OnRemoveService] {
+    this->service_thread_ = new std::thread([this, OnAddService, OnRemoveService] {
         struct service_callback_store store;
         store.OnAddService = OnAddService;
         store.OnRemoveService = OnRemoveService;
@@ -227,8 +266,8 @@ mdns::MDnsSub::ScanService
         DNSServiceBrowse(
             &this->sd_ref_service_, 
             0, 
-            0, 
-            this->regist_type_.data(),
+            this->interface_index_, 
+            this->register_type_.data(),
             this->domain_.data(),
             this->ServiceCallback_, 
             &store
@@ -247,15 +286,15 @@ mdns::MDnsSub::ScanRecord
     void OnRemoveRecord(std::map<std::string, std::string>)
 )
 {
-    this->record_loop_ = new std::thread([this, OnAddRecord, OnRemoveRecord] () {
+    this->record_thread_ = new std::thread([this, OnAddRecord, OnRemoveRecord] () {
         struct record_callback_store store;
-        int fullname_len = strlen(this->name_.data()) + strlen(this->regist_type_.data()) + strlen(this->domain_.data()) + 10;
-        char fullname[fullname_len];
+        int fullname_length = strlen(this->name_.data()) + strlen(this->register_type_.data()) + strlen(this->domain_.data()) + 10;
+        char fullname[fullname_length];
 
         DNSServiceConstructFullName(
             fullname, 
             this->name_.data(), 
-            this->regist_type_.data(), 
+            this->register_type_.data(), 
             this->domain_.data()
         );
 
@@ -265,7 +304,7 @@ mdns::MDnsSub::ScanRecord
 
         DNSServiceQueryRecord(
             &this->sd_ref_record_,
-            0,
+            kDNSServiceFlagsForceMulticast,
             this->interface_index_,
             fullname,
             kDNSServiceType_TXT,
@@ -289,8 +328,8 @@ mdns::MDnsSub::set_name(std::string name) {
 }
 
 void
-mdns::MDnsSub::set_regist_type(std::string regist_type) {
-    this->regist_type_ = regist_type;
+mdns::MDnsSub::set_register_type(std::string register_type) {
+    this->register_type_ = register_type;
 }
 
 void
@@ -306,13 +345,54 @@ mdns::MDnsSub::set_interface_index(uint32_t interface_index) {
 // getter
 
 std::string
+mdns::MDnsSub::GetHostname() {
+    DNSServiceRef sd_ref;
+    std::string scan_result;
+    
+    int status = DNSServiceResolve(
+        &sd_ref,
+        kDNSServiceFlagsForceMulticast,
+        kDNSServiceClass_IN,
+        this->name_.data(),
+        this->register_type_.data(),
+        this->domain_.data(),
+        this->GetHostnameCallback_,
+        &scan_result
+    );
+
+    DNSServiceProcessResult(sd_ref);
+
+    return scan_result;
+}
+
+std::string
+mdns::MDnsSub::GetIpAddress() {
+    DNSServiceRef sd_ref;
+    std::string ip_address;
+
+    DNSServiceGetAddrInfo(
+        &sd_ref,
+        kDNSServiceFlagsForceMulticast,
+        kDNSServiceClass_IN,
+        kDNSServiceProtocol_IPv4,
+        this->GetHostname().data(),
+        this->GetIpCallback_,
+        &ip_address
+    );
+
+    DNSServiceProcessResult(sd_ref);
+
+    return ip_address;
+}
+
+std::string
 mdns::MDnsSub::get_name() {
     return this->name_;
 }
 
 std::string
-mdns::MDnsSub::get_regist_type() {
-    return this->regist_type_;
+mdns::MDnsSub::get_register_type() {
+    return this->register_type_;
 }
 
 std::string

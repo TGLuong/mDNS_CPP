@@ -10,19 +10,21 @@
 namespace mdns {
     class MDnsPub {
         private:
+
             DNSServiceRef   sd_ref_;
             DNSRecordRef    record_ref_;
             DNSServiceFlags flags_ = 0;
             TXTRecordRef    txt_record_;
 
             std::string name_;
-            std::string regist_type_;
+            std::string register_type_;
             std::string domain_;
 
             uint32_t    interface_index_;
-            uint32_t    ttl = 120;
+            uint32_t    time_to_live = 120;
             uint16_t    port_;
-            uint8_t     is_init_txt = 0;
+            uint8_t     is_init_txt_ = 0;
+            uint8_t     is_registered_ = 0;
             
             char txt_buffer_[65535];
 
@@ -32,11 +34,10 @@ namespace mdns {
 
             void InitRecord_();
 
-            void Unregister_();
-
             void DestroyRecord_();
 
         public:
+
             MDnsPub(
                 std::string     name, 
                 std::string     regist_type, 
@@ -58,6 +59,8 @@ namespace mdns {
             int RemoveRecordValue(std::string key);
 
             int Register();
+
+            void Unregister();
 
             // getter
 
