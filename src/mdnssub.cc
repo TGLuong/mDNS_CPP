@@ -360,17 +360,18 @@ std::string
 mdns::MDnsSub::GetHostname() {
     DNSServiceRef sd_ref;
     std::string scan_result;
-    
     int status = DNSServiceResolve(
         &sd_ref,
         kDNSServiceFlagsForceMulticast,
-        kDNSServiceClass_IN,
+        this->interface_index_,
         this->name_.data(),
         this->register_type_.data(),
         this->domain_.data(),
         this->GetHostnameCallback_,
         &scan_result
     );
+
+    printf("status: %d\n", status);
 
     DNSServiceProcessResult(sd_ref);
 
@@ -385,7 +386,7 @@ mdns::MDnsSub::GetIpAddress() {
     DNSServiceGetAddrInfo(
         &sd_ref,
         kDNSServiceFlagsForceMulticast,
-        kDNSServiceClass_IN,
+        this->interface_index_,
         kDNSServiceProtocol_IPv4,
         this->GetHostname().data(),
         this->GetIpCallback_,
