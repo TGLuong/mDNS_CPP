@@ -29,9 +29,12 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc
 
 remake: clean all
 
-clean: clean-test
+clean: clean-test clean-client
 	rm -rf obj/*
 	rm -rf sub pub
 
 clean-test:
 	rm -rf test
+
+clean-client:
+	rm -rf client1 client2
