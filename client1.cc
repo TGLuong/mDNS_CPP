@@ -7,12 +7,12 @@
 #include <string.h>
 #include <unistd.h>
 
-#define CLIENT1_PORT 5050
+#define CLIENT1_PORT 5059
 #define BACKLOG 100
 
 
 void StartMDNS(mdns::MDnsPub &pub) {
-    pub.AddRecordValue("port", "5050");
+    pub.AddRecordValue("port", "5059");
     pub.Register();
 }
 
