@@ -2,4 +2,4 @@ sub
 pub
 client1
 client2
-/obj/
+obj/**
