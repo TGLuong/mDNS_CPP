@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define CLIENT1_PORT 5050
 #define BACKLOG 100
@@ -19,7 +20,7 @@ int main() {
     int client1_fd;
     struct sockaddr_in client1_addr;
 
-    mdns::MDnsPub pub("client1", "_http._tcp", "local.", 5000, 0);
+    mdns::MDnsPub pub("client1", "_http._tcp");
     StartMDNS(pub);
 
     client1_fd = socket(AF_INET, SOCK_STREAM, 0);

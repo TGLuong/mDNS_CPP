@@ -99,6 +99,11 @@ namespace mdns {
                 uint32_t interface_index
             );
 
+            MDnsSub(
+                std::string name,
+                std::string register_type
+            );
+
             ~MDnsSub();
             
             int ScanDomain(void callback(std::string));

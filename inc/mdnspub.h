@@ -46,15 +46,33 @@ namespace mdns {
                 uint32_t        interface_index
             );
 
+            MDnsPub(
+                std::string     name,
+                std::string     register_type,
+                uint16_t        port,
+                uint32_t        interface_index
+            );
+
+            MDnsPub(
+                std::string     name,
+                std::string     register_type,
+                uint16_t        port
+            );
+
+            MDnsPub(
+                std::string     name,
+                std::string     register_type
+            );
+
             ~MDnsPub();
 
             int AddRecordValue(std::string key, std::string value);
 
             int AddRecordValue(std::string key, std::string value, uint32_t time_to_live);
 
-            int AddRecordValue(std::map<std::string, std::string> record_value);
+            int AddMapRecordValue(std::map<std::string, std::string> map_record_values);
 
-            int AddRecordValue(std::map<std::string, std::string> record_value, uint32_t time_to_live);
+            int AddMapRecordValue(std::map<std::string, std::string> map_record_values, uint32_t time_to_live);
 
             int RemoveRecordValue(std::string key);
 

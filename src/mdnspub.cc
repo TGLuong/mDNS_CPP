@@ -61,11 +61,53 @@ mdns::MDnsPub::MDnsPub
     uint32_t        interface_index
 )   
 {
-    this->name_ = name;
-    this->register_type_ = register_type;
-    this->domain_ = domain;
-    this->port_ = htons(port);
-    this->interface_index_ = interface_index;
+    this->name_             = name;
+    this->register_type_    = register_type;
+    this->domain_           = domain;
+    this->port_             = htons(port);
+    this->interface_index_  = interface_index;
+}
+
+mdns::MDnsPub::MDnsPub
+(
+    std::string     name,
+    std::string     register_type,
+    uint16_t        port,
+    uint32_t        interface_index
+)
+{
+    this->name_             = name;
+    this->register_type_    = register_type;
+    this->domain_           = "local.";
+    this->port_             = htons(port);
+    this->interface_index_  = interface_index;
+}
+
+mdns::MDnsPub::MDnsPub
+(
+    std::string     name,
+    std::string     register_type,
+    uint16_t        port
+)
+{
+    this->name_             = name;
+    this->register_type_    = register_type;
+    this->domain_           = "local.";
+    this->port_             = htons(port);
+    this->interface_index_  = 0;
+}
+
+mdns::MDnsPub::MDnsPub
+(
+    std::string     name,
+    std::string     register_type
+)
+{
+    this->name_             = name;
+    this->register_type_    = register_type;
+    this->domain_           = "local.";
+    this->port_             = htons(5000);
+    this->interface_index_  = 0;
 }
 
 mdns::MDnsPub::~MDnsPub() {
@@ -133,10 +175,9 @@ mdns::MDnsPub::AddRecordValue
 }
 
 int 
-mdns::MDnsPub::AddRecordValue
+mdns::MDnsPub::AddMapRecordValue
 (
-    std::map<std::string, 
-    std::string> record_value
+    std::map<std::string, std::string> map_record_value
 ) 
 {
     if (is_init_txt_ == 0) {
@@ -145,7 +186,7 @@ mdns::MDnsPub::AddRecordValue
     }
 
     int status;
-    for (const auto &item : record_value) {
+    for (const auto &item : map_record_value) {
         status = TXTRecordSetValue(
             &this->txt_record_, 
             item.first.data(), 
@@ -161,10 +202,9 @@ mdns::MDnsPub::AddRecordValue
 }
 
 int 
-mdns::MDnsPub::AddRecordValue
+mdns::MDnsPub::AddMapRecordValue
 (
-    std::map<std::string, 
-    std::string> record_value, 
+    std::map<std::string, std::string> map_record_value, 
     uint32_t time_to_live
 )
 {
@@ -174,7 +214,7 @@ mdns::MDnsPub::AddRecordValue
     }
 
     int status;
-    for (const auto &item : record_value) {
+    for (const auto &item : map_record_value) {
         status = TXTRecordSetValue(
             &this->txt_record_, 
             item.first.data(), 

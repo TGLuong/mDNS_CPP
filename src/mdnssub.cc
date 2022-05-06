@@ -219,6 +219,18 @@ mdns::MDnsSub::MDnsSub
     this-> interface_index_ = interface_index;
 }
 
+mdns::MDnsSub::MDnsSub
+(
+    std::string name,
+    std::string register_type
+)
+{
+    this->name_             = name;
+    this->register_type_    = register_type;
+    this->domain_           = "local.";
+    this->interface_index_  = 0;
+}
+
 mdns::MDnsSub::~MDnsSub() { 
     this->RequestStopDomain();
     this->RequestStopService();
