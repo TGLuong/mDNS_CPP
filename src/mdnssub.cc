@@ -1,16 +1,19 @@
 #include "mdnssub.h"
+
+#include <arpa/inet.h>
 #include <dns_sd.h>
+#include <netinet/in.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
+#include <unistd.h>
 
+#include <algorithm>
 #include <list>
 #include <map>
 #include <string>
 #include <thread>
-#include <algorithm>
 
+//======================== STRUCT DEFINITION ===========================
 
 typedef void (*domain_callback_def)(std::string);
 
@@ -35,7 +38,258 @@ struct record_callback_store {
     std::map<std::string, std::string> *record_map;
 };
 
-// private
+//========================= PUBLIC ==============================
+
+mdns::MDnsSub::MDnsSub
+(
+    std::string name, 
+    std::string register_type, 
+    std::string domain, 
+    uint32_t interface_index
+) 
+{
+    this->name_ = name;
+    this->register_type_ = register_type;
+    this->domain_ = domain;
+    this-> interface_index_ = interface_index;
+}
+
+mdns::MDnsSub::MDnsSub
+(
+    std::string name,
+    std::string register_type
+)
+{
+    this->name_             = name;
+    this->register_type_    = register_type;
+    this->domain_           = "local.";
+    this->interface_index_  = 0;
+}
+
+mdns::MDnsSub::~MDnsSub() { 
+    this->RequestStopDomain();
+    this->RequestStopService();
+    this->RequestStopRecord();
+}
+
+int
+mdns::MDnsSub::ScanDomain
+(
+    void callback(std::string)
+)
+{
+    this->domain_thread_ = new std::thread([this, callback] () -> void {
+        struct domain_callback_store store;
+        store.call = callback;
+        store.domain_list = &this->domain_list_;
+        
+        this->TryStartScanDomain(&store);
+
+        this->is_domain_loop_ = 1;
+        while (this->is_domain_loop_) {
+            if (this->CheckDaemonIsRunning() == 0) this->TryStartScanDomain(&store);
+            DNSServiceProcessResult(this->sd_ref_domain_);
+        }
+    });
+    
+    return 0;
+}
+
+int
+mdns::MDnsSub::ScanService
+(
+    void OnAddService(std::string), 
+    void OnRemoveService(std::string)
+)
+{
+    this->service_thread_ = new std::thread([this, OnAddService, OnRemoveService] {
+        struct service_callback_store store;
+        store.OnAddService = OnAddService;
+        store.OnRemoveService = OnRemoveService;
+        store.service_list = &this->service_list_;
+
+        this->TryStartScanService(&store);
+
+        this->is_service_loop_ = 1;
+        while (this->is_service_loop_) {
+            if (this->CheckDaemonIsRunning() == 0) this->TryStartScanService(&store);
+            DNSServiceProcessResult(this->sd_ref_service_);
+        }
+    });
+
+    return 0;
+}
+
+int
+mdns::MDnsSub::ScanRecord
+(
+    void OnAddRecord(std::map<std::string, std::string>), 
+    void OnRemoveRecord(std::map<std::string, std::string>)
+)
+{
+    this->record_thread_ = new std::thread([this, OnAddRecord, OnRemoveRecord] () {
+        struct record_callback_store store;
+        int fullname_length =   strlen(this->name_.data()) + 
+                                strlen(this->register_type_.data()) + 
+                                strlen(this->domain_.data()) + 10;
+
+        char fullname[fullname_length];
+
+        DNSServiceConstructFullName(
+            fullname, 
+            this->name_.data(), 
+            this->register_type_.data(), 
+            this->domain_.data()
+        );
+
+        store.OnAddRecord = OnAddRecord;
+        store.OnRemoveRecord = OnRemoveRecord;
+        store.record_map = &this->record_map_;
+
+        this->TryStartScanQuery(fullname, &store);
+
+        this->is_record_loop_ = 1;
+        while (this->is_record_loop_) {
+            if (this->CheckDaemonIsRunning() == 0) this->TryStartScanQuery(fullname, &store);
+            DNSServiceProcessResult(this->sd_ref_record_);
+        }
+    });
+
+    return 0;
+}
+
+//======================== PUBLIC - SETTER ==========================
+
+void
+mdns::MDnsSub::set_name(std::string name) {
+    this->name_ = name;
+}
+
+void
+mdns::MDnsSub::set_register_type(std::string register_type) {
+    this->register_type_ = register_type;
+}
+
+void
+mdns::MDnsSub::set_domain(std::string domain) {
+    this->domain_ = domain;
+}
+
+void
+mdns::MDnsSub::set_interface_index(uint32_t interface_index) {
+    this->interface_index_ = interface_index;
+}
+
+//======================= PUCLIC - GETTER ==============================
+
+std::string
+mdns::MDnsSub::GetHostname() {
+    DNSServiceRef sd_ref;
+    std::string scan_result;
+    int status = DNSServiceResolve(
+        &sd_ref,
+        kDNSServiceFlagsForceMulticast,
+        this->interface_index_,
+        this->name_.data(),
+        this->register_type_.data(),
+        this->domain_.data(),
+        this->GetHostnameCallback_,
+        &scan_result
+    );
+
+    printf("status: %d\n", status);
+
+    DNSServiceProcessResult(sd_ref);
+
+    return scan_result;
+}
+
+std::string
+mdns::MDnsSub::GetIpAddress() {
+    DNSServiceRef sd_ref;
+    std::string ip_address;
+
+    DNSServiceGetAddrInfo(
+        &sd_ref,
+        kDNSServiceFlagsForceMulticast,
+        this->interface_index_,
+        kDNSServiceProtocol_IPv4,
+        this->GetHostname().data(),
+        this->GetIpCallback_,
+        &ip_address
+    );
+
+    DNSServiceProcessResult(sd_ref);
+
+    return ip_address;
+}
+
+std::string
+mdns::MDnsSub::get_name() {
+    return this->name_;
+}
+
+std::string
+mdns::MDnsSub::get_register_type() {
+    return this->register_type_;
+}
+
+std::string
+mdns::MDnsSub::get_domain() {
+    return this->domain_;
+}
+
+uint32_t
+mdns::MDnsSub::get_interface_index() {
+    return this->interface_index_;
+}
+
+long
+mdns::MDnsSub::get_domain_list_size() {
+    return this->domain_list_.size();
+}
+
+std::string
+mdns::MDnsSub::get_domain_list_at(int i) {
+    if (i < this->domain_list_.size()) {
+        std::list<std::string>::iterator it = this->domain_list_.begin();
+        std::advance(it, i);
+        return *it;
+    }
+    return "";
+}
+
+long
+mdns::MDnsSub::get_service_list_size() {
+    return this->service_list_.size();
+}
+
+std::string
+mdns::MDnsSub::get_service_list_at(int i) {
+    if (i < this->service_list_.size()) {
+        std::list<std::string>::iterator it = this->service_list_.begin();
+        std::advance(it, i);
+        return *it;
+    }
+    return "";
+}
+
+long
+mdns::MDnsSub::get_record_map_size() {
+    return this->record_map_.size();
+}
+
+std::string
+mdns::MDnsSub::get_record_by_key(std::string key) {
+    std::map<std::string, std::string>::iterator itr = this->record_map_.find(key);
+    if (itr != this->record_map_.end()) {
+        return itr->second;
+    } else {
+        return "";
+    }
+}
+
+//======================= PRIVATE =========================
 
 void 
 mdns::MDnsSub::DomainCallback_
@@ -203,262 +457,97 @@ mdns::MDnsSub::GetIpCallback_
     (* ip_address) = inet_ntoa(addr_in->sin_addr);
 }
 
-// public
-
-mdns::MDnsSub::MDnsSub
+void
+mdns::MDnsSub::TryStartScanQuery
 (
-    std::string name, 
-    std::string register_type, 
-    std::string domain, 
-    uint32_t interface_index
-) 
-{
-    this->name_ = name;
-    this->register_type_ = register_type;
-    this->domain_ = domain;
-    this-> interface_index_ = interface_index;
-}
-
-mdns::MDnsSub::MDnsSub
-(
-    std::string name,
-    std::string register_type
+    std::string fullname,
+    void        *store
 )
 {
-    this->name_             = name;
-    this->register_type_    = register_type;
-    this->domain_           = "local.";
-    this->interface_index_  = 0;
-}
-
-mdns::MDnsSub::~MDnsSub() { 
-    this->RequestStopDomain();
-    this->RequestStopService();
-    this->RequestStopRecord();
-}
-
-int
-mdns::MDnsSub::ScanDomain
-(
-    void callback(std::string)
-)
-{
-    this->domain_thread_ = new std::thread([this, callback] () -> void {
-        struct domain_callback_store store;
-        store.call = callback;
-        store.domain_list = &this->domain_list_;
-        
-        DNSServiceEnumerateDomains(
-            &sd_ref_domain_, 
-            kDNSServiceFlagsBrowseDomains, 
-            this->interface_index_, 
-            DomainCallback_, 
-            &store
+    int status;
+    while (1) {
+        status = DNSServiceQueryRecord(
+            &this->sd_ref_record_,
+            kDNSServiceFlagsForceMulticast,
+            this->interface_index_,
+            fullname.data(),
+            kDNSServiceType_TXT,
+            kDNSServiceClass_IN,
+            this->RecordCallback_,
+            store
         );
 
-        this->is_domain_loop_ = 1;
-        while (this->is_domain_loop_) DNSServiceProcessResult(this->sd_ref_domain_);
-    });
-    return 0;
+        if (status != kDNSServiceErr_NoError) {
+            printf("ERROR: can't start scan query, retry scan!\n");
+            sleep(1);
+        } else {
+            break;
+        }
+    }
 }
 
-int
-mdns::MDnsSub::ScanService
+void
+mdns::MDnsSub::TryStartScanService
 (
-    void OnAddService(std::string), 
-    void OnRemoveService(std::string)
+    void *store
 )
 {
-    this->service_thread_ = new std::thread([this, OnAddService, OnRemoveService] {
-        struct service_callback_store store;
-        store.OnAddService = OnAddService;
-        store.OnRemoveService = OnRemoveService;
-        store.service_list = &this->service_list_;
-
-        DNSServiceBrowse(
+    int status;
+    while (1) {
+        status = DNSServiceBrowse(
             &this->sd_ref_service_, 
             0, 
             this->interface_index_, 
             this->register_type_.data(),
             this->domain_.data(),
             this->ServiceCallback_, 
-            &store
+            store
         );
+        if (status != kDNSServiceErr_NoError) {
+            printf("ERROR: can't scan service, retry scan\n");
+            sleep(1);
+        } else {
+            break;
+        }
+    }
+}
 
-        this->is_service_loop_ = 1;
-        while (this->is_service_loop_) DNSServiceProcessResult(this->sd_ref_service_);
-    });
-    return 0;
+void
+mdns::MDnsSub::TryStartScanDomain
+(
+    void *store
+)
+{
+    int status;
+    while (1) {
+        status = DNSServiceEnumerateDomains(
+            &this->sd_ref_domain_, 
+            kDNSServiceFlagsBrowseDomains, 
+            this->interface_index_, 
+            DomainCallback_, 
+            store
+        );
+        if (status != kDNSServiceErr_NoError) {
+            printf("ERROR: can't scan domain, retry scan\n");
+            sleep(1);
+        } else {
+            break;
+        }
+    }
 }
 
 int
-mdns::MDnsSub::ScanRecord
-(
-    void OnAddRecord(std::map<std::string, std::string>), 
-    void OnRemoveRecord(std::map<std::string, std::string>)
-)
-{
-    this->record_thread_ = new std::thread([this, OnAddRecord, OnRemoveRecord] () {
-        struct record_callback_store store;
-        int fullname_length = strlen(this->name_.data()) + strlen(this->register_type_.data()) + strlen(this->domain_.data()) + 10;
-        char fullname[fullname_length];
-
-        DNSServiceConstructFullName(
-            fullname, 
-            this->name_.data(), 
-            this->register_type_.data(), 
-            this->domain_.data()
-        );
-
-        store.OnAddRecord = OnAddRecord;
-        store.OnRemoveRecord = OnRemoveRecord;
-        store.record_map = &this->record_map_;
-
-        DNSServiceQueryRecord(
-            &this->sd_ref_record_,
-            kDNSServiceFlagsForceMulticast,
-            this->interface_index_,
-            fullname,
-            kDNSServiceType_TXT,
-            kDNSServiceClass_IN,
-            this->RecordCallback_,
-            &store
-        );
-
-        this->is_record_loop_ = 1;
-        while (this->is_record_loop_) DNSServiceProcessResult(this->sd_ref_record_);
-    });
-
-    return 0;
-}
-
-// setter
-
-void
-mdns::MDnsSub::set_name(std::string name) {
-    this->name_ = name;
-}
-
-void
-mdns::MDnsSub::set_register_type(std::string register_type) {
-    this->register_type_ = register_type;
-}
-
-void
-mdns::MDnsSub::set_domain(std::string domain) {
-    this->domain_ = domain;
-}
-
-void
-mdns::MDnsSub::set_interface_index(uint32_t interface_index) {
-    this->interface_index_ = interface_index;
-}
-
-// getter
-
-std::string
-mdns::MDnsSub::GetHostname() {
-    DNSServiceRef sd_ref;
-    std::string scan_result;
-    int status = DNSServiceResolve(
-        &sd_ref,
-        kDNSServiceFlagsForceMulticast,
-        this->interface_index_,
-        this->name_.data(),
-        this->register_type_.data(),
-        this->domain_.data(),
-        this->GetHostnameCallback_,
-        &scan_result
+mdns::MDnsSub::CheckDaemonIsRunning() {
+    uint32_t property; 
+    uint32_t size;
+    int status = DNSServiceGetProperty(
+        kDNSServiceProperty_DaemonVersion, 
+        &property, 
+        &size
     );
-
-    printf("status: %d\n", status);
-
-    DNSServiceProcessResult(sd_ref);
-
-    return scan_result;
-}
-
-std::string
-mdns::MDnsSub::GetIpAddress() {
-    DNSServiceRef sd_ref;
-    std::string ip_address;
-
-    DNSServiceGetAddrInfo(
-        &sd_ref,
-        kDNSServiceFlagsForceMulticast,
-        this->interface_index_,
-        kDNSServiceProtocol_IPv4,
-        this->GetHostname().data(),
-        this->GetIpCallback_,
-        &ip_address
-    );
-
-    DNSServiceProcessResult(sd_ref);
-
-    return ip_address;
-}
-
-std::string
-mdns::MDnsSub::get_name() {
-    return this->name_;
-}
-
-std::string
-mdns::MDnsSub::get_register_type() {
-    return this->register_type_;
-}
-
-std::string
-mdns::MDnsSub::get_domain() {
-    return this->domain_;
-}
-
-uint32_t
-mdns::MDnsSub::get_interface_index() {
-    return this->interface_index_;
-}
-
-long
-mdns::MDnsSub::get_domain_list_size() {
-    return this->domain_list_.size();
-}
-
-std::string
-mdns::MDnsSub::get_domain_list_at(int i) {
-    if (i < this->domain_list_.size()) {
-        std::list<std::string>::iterator it = this->domain_list_.begin();
-        std::advance(it, i);
-        return *it;
-    }
-    return "";
-}
-
-long
-mdns::MDnsSub::get_service_list_size() {
-    return this->service_list_.size();
-}
-
-std::string
-mdns::MDnsSub::get_service_list_at(int i) {
-    if (i < this->service_list_.size()) {
-        std::list<std::string>::iterator it = this->service_list_.begin();
-        std::advance(it, i);
-        return *it;
-    }
-    return "";
-}
-
-long
-mdns::MDnsSub::get_record_map_size() {
-    return this->record_map_.size();
-}
-
-std::string
-mdns::MDnsSub::get_record_by_key(std::string key) {
-    std::map<std::string, std::string>::iterator itr = this->record_map_.find(key);
-    if (itr != this->record_map_.end()) {
-        return itr->second;
+    if (status == 0) {
+        return 1;
     } else {
-        return "";
+        return 0;
     }
 }

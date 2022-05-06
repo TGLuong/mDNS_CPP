@@ -215,7 +215,7 @@ mdns::MDnsPub::Register() {
         );
 
         if (status != 0) {
-            printf("ERROR, daemon is not running, retry register!\n");
+            printf("ERROR, retry register!\n");
             sleep(1);
         } else {
             break;

@@ -12,7 +12,79 @@
 
 namespace mdns {
     class MDnsSub {
+        public:
+            MDnsSub(
+                std::string name, 
+                std::string register_type, 
+                std::string domain, 
+                uint32_t interface_index
+            );
+
+            MDnsSub(
+                std::string name,
+                std::string register_type
+            );
+
+            ~MDnsSub();
+            
+            int ScanDomain(
+                void callback(std::string)
+            );
+
+            void RequestStopDomain();
+
+            int ScanService(
+                void OnAddService(std::string), 
+                void OnRemoveService(std::string)
+            );
+            
+            void RequestStopService();
+
+            int ScanRecord(
+                void OnAddRecord(std::map<std::string, std::string>), 
+                void OnRemoveRecord(std::map<std::string, std::string>)
+            );
+
+            void RequestStopRecord();
+            
+            // setter
+
+            void set_name(std::string name);
+
+            void set_register_type(std::string register_type);
+
+            void set_domain(std::string domain);
+
+            void set_interface_index(uint32_t interface_index);
+
+            // getter
+
+            std::string GetHostname();
+        
+            std::string GetIpAddress();
+
+            std::string get_name();
+
+            std::string get_register_type();
+
+            std::string get_domain();
+
+            uint32_t get_interface_index();
+
+            long get_domain_list_size();
+
+            std::string get_domain_list_at(int i);
+
+            long get_service_list_size();
+
+            std::string get_service_list_at(int i);
+
+            long get_record_map_size();
+
+            std::string get_record_by_key(std::string key);
+
         private:
+
             std::string name_;
             std::string register_type_;
             std::string domain_;
@@ -91,69 +163,16 @@ namespace mdns {
                 void                    *context
             );
 
-        public:
-            MDnsSub(
-                std::string name, 
-                std::string register_type, 
-                std::string domain, 
-                uint32_t interface_index
+            void TryStartScanQuery(
+                std::string fullname,
+                void        *store
             );
 
-            MDnsSub(
-                std::string name,
-                std::string register_type
-            );
+            void TryStartScanService(void *store);
 
-            ~MDnsSub();
-            
-            int ScanDomain(void callback(std::string));
+            void TryStartScanDomain(void *store);
 
-            void RequestStopDomain();
-
-            int ScanService(void OnAddService(std::string), void OnRemoveService(std::string));
-            
-            void RequestStopService();
-
-            int ScanRecord(void OnAddRecord(std::map<std::string, std::string>), void OnRemoveRecord(std::map<std::string, std::string>));
-
-            void RequestStopRecord();
-            
-            // setter
-
-            void set_name(std::string name);
-
-            void set_register_type(std::string register_type);
-
-            void set_domain(std::string domain);
-
-            void set_interface_index(uint32_t interface_index);
-
-            // getter
-
-            std::string GetHostname();
-        
-            std::string GetIpAddress();
-
-            std::string get_name();
-
-            std::string get_register_type();
-
-            std::string get_domain();
-
-            uint32_t get_interface_index();
-
-            long get_domain_list_size();
-
-            std::string get_domain_list_at(int i);
-
-            long get_service_list_size();
-
-            std::string get_service_list_at(int i);
-
-            long get_record_map_size();
-
-            std::string get_record_by_key(std::string key);
-
+            int CheckDaemonIsRunning();
     };
 }
 #endif // MDNS_MDNSSUB_H
