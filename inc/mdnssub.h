@@ -117,7 +117,7 @@ namespace mdns {
 
             void set_name(std::string name);
 
-            void set_register_type(std::string regist_type);
+            void set_register_type(std::string register_type);
 
             void set_domain(std::string domain);
 

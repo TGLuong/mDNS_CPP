@@ -231,8 +231,8 @@ mdns::MDnsPub::set_name(std::string name) {
 }
 
 void
-mdns::MDnsPub::set_regist_type(std::string regist_type) {
-    this->register_type_ = regist_type;
+mdns::MDnsPub::set_register_type(std::string register_type) {
+    this->register_type_ = register_type;
 }
 
 void
@@ -263,7 +263,7 @@ mdns::MDnsPub::get_name() {
 }
 
 std::string
-mdns::MDnsPub::get_regist_type() {
+mdns::MDnsPub::get_register_type() {
     return this->register_type_;
 }
 

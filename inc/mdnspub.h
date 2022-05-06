@@ -30,7 +30,7 @@ namespace mdns {
 
             int UpdateRecord_();
             
-            int UpdateRecord_(int ttl);
+            int UpdateRecord_(int time_to_live);
 
             void InitRecord_();
 
@@ -40,7 +40,7 @@ namespace mdns {
 
             MDnsPub(
                 std::string     name, 
-                std::string     regist_type, 
+                std::string     register_type, 
                 std::string     domain, 
                 uint16_t        port, 
                 uint32_t        interface_index
@@ -50,11 +50,11 @@ namespace mdns {
 
             int AddRecordValue(std::string key, std::string value);
 
-            int AddRecordValue(std::string key, std::string value, uint32_t ttl);
+            int AddRecordValue(std::string key, std::string value, uint32_t time_to_live);
 
             int AddRecordValue(std::map<std::string, std::string> record_value);
 
-            int AddRecordValue(std::map<std::string, std::string> record_value, uint32_t ttl);
+            int AddRecordValue(std::map<std::string, std::string> record_value, uint32_t time_to_live);
 
             int RemoveRecordValue(std::string key);
 
@@ -66,7 +66,7 @@ namespace mdns {
 
             std::string get_name();
 
-            std::string get_regist_type();
+            std::string get_register_type();
 
             std::string get_domain();
 
@@ -82,7 +82,7 @@ namespace mdns {
 
             void set_name(std::string name);
 
-            void set_regist_type(std::string regist_type);
+            void set_register_type(std::string regist_type);
 
             void set_domain(std::string domain);
 
