@@ -7,12 +7,16 @@
 using namespace std;
 
 int main() {
+    int i_status;
     mdns::MDnsPub pub("gialuong", "_http._tcp", "local.", 5000, 0);
-    pub.Register();
+
+    printf("register status: %d\n", pub.Register());
     while (1) { 
-        pub.AddRecordValue("age", "21");
+        i_status = pub.AddRecordValue("age", "21");
+        printf("status: %d\n", i_status);
         sleep(4);
-        pub.AddRecordValue("age", "22");
+        i_status = pub.AddRecordValue("age", "22");
+        printf("status: %d\n", i_status);
         sleep(4);
     }
     

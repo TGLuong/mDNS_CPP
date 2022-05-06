@@ -14,37 +14,19 @@
 
 
 int main() {
-    std::map<std::string, std::string> a;
+    DNSServiceRef ref;
+    int status;
 
-    a.insert(std::pair<std::string, std::string>("name", "luong"));
-    a.insert(std::pair<std::string, std::string>("age", "21"));
-    a.insert(std::pair<std::string, std::string>("class", "CT3D"));
-    a.insert(std::pair<std::string, std::string>("academy", "KMA"));
+    char mes[10] = {0x1, 0x20};
 
-    std::map<std::string, std::string>::iterator itr;
+    status = DNSServiceRegister(&ref, 0, 0, "gialuong", "_http._tcp", "local.", NULL, 5000, 1, NULL, NULL, NULL);
 
-    for (itr = a.begin(); itr != a.end(); itr++) {
-        printf("%s: %s\n", itr->first.data(), itr->second.data());
+    while (1) {
+        status = DNSServiceUpdateRecord(ref, NULL, 0, 2, mes, 120);
+        printf("status %d\n", status);
+        sleep(1);
     }
 
-    std::map<std::string, std::string>::iterator f = a.find("haha");
-
-    if (f != a.end()){
-        f->second = "mat ma";
-    } else {
-        a.insert(std::pair<std::string, std::string>("haha", "haha"));
-    }
-    
-
-    for (itr = a.begin(); itr != a.end(); itr++) {
-        printf("%s: %s\n", itr->first.data(), itr->second.data());
-    }
-
-
-    a.erase("f");
-
-    for (itr = a.begin(); itr != a.end(); itr++) {
-        printf("%s: %s\n", itr->first.data(), itr->second.data());
-    }
+    printf("status %d\n", status);
     return 0;
 }

@@ -2,55 +2,13 @@
 
 #include <arpa/inet.h>
 #include <dns_sd.h>
+#include <unistd.h>
 
 #include <iostream>
 
-// private
 
-int
-mdns::MDnsPub::UpdateRecord_() {
-    return DNSServiceUpdateRecord(
-        sd_ref_, 
-        NULL, 
-        0, 
-        TXTRecordGetLength(&txt_record_), 
-        TXTRecordGetBytesPtr(&txt_record_), 
-        this->time_to_live
-    );
-}
 
-int
-mdns::MDnsPub::UpdateRecord_(int time_to_live) {
-    return DNSServiceUpdateRecord(
-        sd_ref_, 
-        NULL, 
-        0, 
-        TXTRecordGetLength(&txt_record_), 
-        TXTRecordGetBytesPtr(&txt_record_), 
-        time_to_live
-    );
-}
-
-void 
-mdns::MDnsPub::InitRecord_() {
-    TXTRecordCreate(
-        &this->txt_record_, 
-        sizeof(this->txt_buffer_), 
-        this->txt_buffer_
-    );
-}
-
-void
-mdns::MDnsPub::DestroyRecord_() {
-    DNSServiceRemoveRecord(
-        sd_ref_, 
-        record_ref_, 
-        0
-    );
-    TXTRecordDeallocate(&txt_record_);
-}
-
-// public
+//======================== PUBLIC ===========================
 
 mdns::MDnsPub::MDnsPub
 (
@@ -238,20 +196,31 @@ int
 mdns::MDnsPub::Register() {
     int status;
 
-    status = DNSServiceRegister(
-        &sd_ref_, 
-        flags_, 
-        interface_index_, 
-        name_.data(), 
-        register_type_.data(), 
-        domain_.data(), 
-        NULL, 
-        port_, 
-        TXTRecordGetLength(&txt_record_), 
-        TXTRecordGetBytesPtr(&txt_record_), 
-        NULL, 
-        NULL
-    );
+    this->is_registered_ = 0;
+
+    while (1) {
+        status = DNSServiceRegister(
+            &sd_ref_, 
+            flags_, 
+            interface_index_, 
+            name_.data(), 
+            register_type_.data(), 
+            domain_.data(), 
+            NULL, 
+            port_, 
+            TXTRecordGetLength(&txt_record_), 
+            TXTRecordGetBytesPtr(&txt_record_), 
+            NULL, 
+            NULL
+        );
+
+        if (status != 0) {
+            printf("ERROR, daemon is not running, retry register!\n");
+            sleep(1);
+        } else {
+            break;
+        }
+    }
 
     if (status == 0) this->is_registered_ = 1;
 
@@ -263,7 +232,7 @@ mdns::MDnsPub::Unregister() {
     DNSServiceRefDeallocate(sd_ref_);
 }
 
-// settter
+//========================= PUBLIC - SETTER ==============================
 
 void
 mdns::MDnsPub::set_name(std::string name) {
@@ -295,7 +264,7 @@ mdns::MDnsPub::set_flags(DNSServiceFlags flags) {
     this->flags_ = flags;
 }
 
-// getter
+//======================= PUBLIC - GETTER =========================
 
 std::string
 mdns::MDnsPub::get_name() {
@@ -331,4 +300,83 @@ std::string
 mdns::MDnsPub::get_txt_record() {
     txt_buffer_[TXTRecordGetLength(&txt_record_)] = 0;
     return txt_buffer_;
+}
+
+//======================================== PRIVATE ====================================================
+
+int
+mdns::MDnsPub::UpdateRecord_() {
+    int status;
+    
+    int daemon_is_running = this->CheckDaemonIsRunning();
+
+    if ( daemon_is_running == 0 ) {
+        this->Register();
+    }
+
+    status =  DNSServiceUpdateRecord(
+        sd_ref_, 
+        NULL, 
+        0, 
+        TXTRecordGetLength(&txt_record_), 
+        TXTRecordGetBytesPtr(&txt_record_), 
+        this->time_to_live
+    );
+
+    return 0;
+}
+
+int
+mdns::MDnsPub::UpdateRecord_(int time_to_live) {
+    int daemon_is_running = this->CheckDaemonIsRunning();
+    
+    if ( daemon_is_running == 0 ) {
+        this->Register();
+    }
+    
+    int status = DNSServiceUpdateRecord(
+        sd_ref_, 
+        NULL, 
+        0, 
+        TXTRecordGetLength(&txt_record_), 
+        TXTRecordGetBytesPtr(&txt_record_), 
+        time_to_live
+    );
+
+    return 0;
+}
+
+void 
+mdns::MDnsPub::InitRecord_() {
+    TXTRecordCreate(
+        &this->txt_record_, 
+        sizeof(this->txt_buffer_), 
+        this->txt_buffer_
+    );
+}
+
+void
+mdns::MDnsPub::DestroyRecord_() {
+    DNSServiceRemoveRecord(
+        sd_ref_, 
+        record_ref_, 
+        0
+    );
+    TXTRecordDeallocate(&txt_record_);
+}
+
+int
+mdns::MDnsPub::CheckDaemonIsRunning() {
+    uint32_t property; 
+    uint32_t size;
+    int status = DNSServiceGetProperty(
+        kDNSServiceProperty_DaemonVersion, 
+        &property, 
+        &size
+    );
+    if (status == 0) {
+        return 1;
+    } else {
+        return 0;
+    }
 }

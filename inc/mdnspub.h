@@ -9,32 +9,6 @@
 
 namespace mdns {
     class MDnsPub {
-        private:
-
-            DNSServiceRef   sd_ref_;
-            DNSRecordRef    record_ref_;
-            DNSServiceFlags flags_ = 0;
-            TXTRecordRef    txt_record_;
-
-            std::string name_;
-            std::string register_type_;
-            std::string domain_;
-
-            uint32_t    interface_index_;
-            uint32_t    time_to_live = 120;
-            uint16_t    port_;
-            uint8_t     is_init_txt_ = 0;
-            uint8_t     is_registered_ = 0;
-            
-            char txt_buffer_[65535];
-
-            int UpdateRecord_();
-            
-            int UpdateRecord_(int time_to_live);
-
-            void InitRecord_();
-
-            void DestroyRecord_();
 
         public:
 
@@ -109,6 +83,39 @@ namespace mdns {
             void set_interface_index(uint32_t interface_index);
 
             void set_flags(DNSServiceFlags flags);
+
+        private:
+
+            DNSServiceRef   sd_ref_;
+            DNSRecordRef    record_ref_;
+            DNSServiceFlags flags_ = 0;
+            TXTRecordRef    txt_record_;
+
+            std::string name_;
+            std::string register_type_;
+            std::string domain_;
+
+            uint32_t    interface_index_;
+            uint32_t    time_to_live = 120;
+            uint16_t    port_;
+            uint8_t     is_init_txt_ = 0;
+            uint8_t     is_registered_ = 0;
+            
+            char txt_buffer_[65535];
+
+            int UpdateRecord_();
+            
+            int UpdateRecord_(int time_to_live);
+
+            void InitRecord_();
+
+            void DestroyRecord_();
+
+            void HandErr_(int status, std::string info);
+
+            int CheckDaemonIsRunning();
+
+            void TryRegister_();
             
     };
 }
