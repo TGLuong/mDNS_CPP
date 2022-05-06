@@ -10,6 +10,9 @@ OBJ_DIR := obj
 
 C_FILE := $(wildcard $(SRC_DIR)/*.cc)
 
+setup:
+	mkdir obj
+
 pub: pub.cc $(patsubst $(SRC_DIR)/%.cc, $(OBJ_DIR)/%.o, $(C_FILE))
 	$(CC) -o pub pub.cc $(wildcard $(OBJ_DIR)/*.o) -I$(INC_DIR) $(CFLAGS)
 
