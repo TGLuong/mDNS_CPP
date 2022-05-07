@@ -4,26 +4,9 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-
-void OnAddRecord(std::map<std::string, std::string> service) {
-    printf("on add\n");
-    std::map<std::string, std::string>::iterator itr;
-    for (itr = service.begin(); itr != service.end(); itr++) {
-        printf("%s: %s\n", itr->first.data(), itr->second.data());
-    }
-}
-
-void OnRemoveRecord(std::map<std::string, std::string> service) {
-    printf("on remove\n");
-    std::map<std::string, std::string>::iterator itr;
-    for (itr = service.begin(); itr != service.end(); itr++) {
-        printf("%s: %s\n", itr->first.data(), itr->second.data());
-    }
-}
-
 void StartMDNS(mdns::MDnsPub &pub, mdns::MDnsSub &sub) {
     pub.Register();
-    sub.ScanRecord(OnAddRecord, OnRemoveRecord);
+    sub.ScanRecord(NULL, NULL);
 }
 
 int main() {
