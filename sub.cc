@@ -37,7 +37,7 @@ int main() {
     mdns::MDnsSub sub("gialuong", "_http._tcp", "local.", 0);
     sub.ScanDomain(callback);
     // sub.ScanService(OnAddService, OnRemoveService);
-    // sub.ScanRecord(OnAddRecord, OnRemoveRecord);
+    sub.ScanRecord(OnAddRecord, NULL);
     // printf("host name: %s\n", sub.GetHostname().data());
     // printf("ip address: %s\n", sub.GetIpAddress().data());
     while(1) {

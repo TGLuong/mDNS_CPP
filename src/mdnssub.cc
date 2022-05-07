@@ -405,9 +405,9 @@ mdns::MDnsSub::RecordCallback_
         }
     }
     if (flags == kDNSServiceFlagsAdd) {
-        store->OnAddRecord(record_map);
+        if (store->OnAddRecord != NULL) store->OnAddRecord(record_map);
     } else {
-        store->OnRemoveRecord(record_map);
+        if (store->OnRemoveRecord != NULL) store->OnRemoveRecord(record_map);
     }
 }
 

@@ -35,7 +35,7 @@ int main() {
     std::string port = sub.get_record_by_key("port");
 
     printf("ip_address: %s\n", ip_address.data());
-    printf("port: %s\n", port.data());
+    printf("on port: %s\n", port.data());
 
     return 0;
 }
